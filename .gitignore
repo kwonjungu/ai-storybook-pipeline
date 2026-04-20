@@ -1,0 +1,52 @@
+# =============================================
+# AI 동화 파이프라인 — .gitignore
+# =============================================
+
+# API 키 & 시크릿 (절대 커밋 금지!)
+.env
+client_secret.json
+token_*.json
+
+# 생성된 출력물 (12GB+, 로컬에서만 보관)
+output/
+
+# 미디어 파일
+*.wav
+*.mp3
+*.mp4
+*.avi
+
+# PDF (교육과정 저작권 자료 + 활동지)
+*.pdf
+독후활동지 관련/
+
+# 아카이브 (구버전 스크립트)
+_archive/
+
+# 폰트 (자동 다운로드 또는 별도 설치)
+assets/fonts/*.ttf
+
+# Python 캐시
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# 배치 작업 임시 파일
+batch_*.jsonl
+
+# OS 자동 생성 파일
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 파이프라인 HTML 리포트 (로컬 전용)
+pipeline_diagram.html

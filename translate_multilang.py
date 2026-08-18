@@ -210,7 +210,8 @@ def translate_story(src_dir: Path, lang: str):
     data["meta"]["story_title"]   = meta_tr.get("story_title",   data["meta"]["story_title"])
     data["meta"]["youtube_title"] = meta_tr.get("youtube_title", data["meta"]["youtube_title"])
 
-    # 슈퍼톤 보이스 → ElevenLabs 보이스로 교체
+    # 한국어 보이스(Typecast/구 Supertone) → ElevenLabs 보이스로 교체
+    data["meta"].pop("typecast_voices", None)
     data["meta"].pop("supertone_voices", None)
     data["meta"]["elevenlabs_voices"] = ELEVENLABS_VOICES
 

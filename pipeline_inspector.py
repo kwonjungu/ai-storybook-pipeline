@@ -45,13 +45,23 @@ load_dotenv()
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-# .env의 FFMPEG_BIN 우선, 없으면 시스템 PATH의 ffmpeg 사용
+# .env의 FFMPEG_BIN 우선 → 시스템 PATH의 ffmpeg → 알려진 WinGet 설치 경로 순
 import shutil as _shutil
-FFMPEG_BIN = os.getenv("FFMPEG_BIN") or (
-    r"C:\Users\권준구\AppData\Local\Microsoft\WinGet\Packages"
-    r"\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe"
-    r"\ffmpeg-8.1-full_build\bin"
-)
+
+def _detect_ffmpeg_bin() -> str:
+    env_bin = os.getenv("FFMPEG_BIN")
+    if env_bin:
+        return env_bin
+    found = _shutil.which("ffmpeg")
+    if found:
+        return str(Path(found).parent)
+    return (
+        r"C:\Users\권준구\AppData\Local\Microsoft\WinGet\Packages"
+        r"\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        r"\ffmpeg-8.1-full_build\bin"
+    )
+
+FFMPEG_BIN = _detect_ffmpeg_bin()
 
 # 내레이터 혼입 감지 패턴 (한국어 / 인도네시아어)
 NARRATOR_LEAKAGE_KO = re.compile(

@@ -77,7 +77,8 @@ def extract_script(story: dict) -> list:
                 "slide": sl["slide_number"],
                 "seg":   i,
                 "speaker": seg.get("speaker", "narrator"),
-                "voice":   seg.get("voice",   "narrator"),
+                # voice는 다국어(Gemini/ElevenLabs) 전용 필드 — 한국어(Typecast)는 speaker만 사용
+                "voice":   seg.get("voice", ""),
                 "text":    seg.get("text", "").strip(),
             })
     return items
@@ -103,8 +104,8 @@ def rule_check(items: list, lang: str) -> list:
             issues.append({"code": "S", "slide": sl, "seg": seg, "speaker": sp,
                 "msg": f"내레이터 서술 혼입 의심 [{sp}]: {text[:60]}", "auto_fixable": False, "severity": "ERROR"})
 
-        # speaker/voice 불일치
-        if sp != vo:
+        # speaker/voice 불일치 — 두 필드가 모두 명시된 경우에만 (voice 없는 한국어 세그먼트는 정상)
+        if vo and sp != vo:
             issues.append({"code": "V", "slide": sl, "seg": seg,
                 "msg": f"speaker({sp})≠voice({vo}) 불일치", "auto_fixable": True, "severity": "ERROR"})
 
@@ -205,8 +206,8 @@ def auto_fix_story(story: dict, issues: list, ep_dir: Path) -> tuple[bool, list]
                 modified = True
                 modified_slides.add(sl_num)
 
-            # speaker/voice 불일치 수정 (voice를 speaker에 맞춤)
-            if seg.get("speaker") != seg.get("voice"):
+            # speaker/voice 불일치 수정 (voice가 명시된 세그먼트만 — 한국어는 voice 필드 없음이 정상)
+            if seg.get("voice") and seg.get("speaker") != seg.get("voice"):
                 seg["voice"] = seg["speaker"]
                 modified = True
                 modified_slides.add(sl_num)
@@ -215,7 +216,8 @@ def auto_fix_story(story: dict, issues: list, ep_dir: Path) -> tuple[bool, list]
         story_path = ep_dir / "story.json"
         backup     = ep_dir / "story_narcheck_prev.json"
         if story_path.exists():
-            story_path.rename(backup)
+            # replace: 기존 백업이 있어도 덮어쓰기 (rename은 Windows에서 FileExistsError)
+            story_path.replace(backup)
         story_path.write_text(json.dumps(story, ensure_ascii=False, indent=2), encoding='utf-8')
         print(f"  [자동 수정] story.json 업데이트 (백업: {backup.name})")
 

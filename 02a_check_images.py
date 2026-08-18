@@ -196,7 +196,7 @@ def check_image_with_llm(slide: dict, image_path: Path, lang: str, characters: d
     for attempt in range(3):
         try:
             resp = _client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash"),
                 contents=[
                     genai_types.Part.from_bytes(data=base64.b64decode(b64), mime_type=mime),
                     genai_types.Part.from_text(text=prompt),
@@ -233,10 +233,13 @@ def regenerate_slides(ep_dir: Path, slide_nums: list):
             if p.exists():
                 p.unlink()
                 print(f"    삭제: {p.name}")
-    # 재생성
-    cmd = [sys.executable, "02_generate_images.py", "--dir", str(ep_dir)]
+    # 재생성 — 소량 재생성이므로 배치 큐 대기 없는 실시간 모드 사용
+    # (캐릭터 시트는 characters/에 남아 있어 레퍼런스 일관성 유지됨)
+    cmd = [sys.executable, "02_generate_images.py", "--dir", str(ep_dir), "--realtime"]
     print(f"  [재생성] {' '.join(cmd)}")
-    subprocess.run(cmd, cwd=Path(__file__).parent)
+    result = subprocess.run(cmd, cwd=Path(__file__).parent)
+    if result.returncode != 0:
+        print(f"  [ERROR] 이미지 재생성 실패 (exit={result.returncode}) — 수동 확인 필요")
 
 
 # ── 유틸 ─────────────────────────────────────────────────────

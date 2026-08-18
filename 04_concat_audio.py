@@ -55,6 +55,24 @@ def generate_silence_frames(duration: float, sample_rate: int, channels: int, sa
     return b"\x00" * (n_frames * channels * sampwidth)
 
 
+def resample_wav_ffmpeg(src: Path, rate: int, channels: int) -> Path | None:
+    """샘플레이트/채널이 다른 WAV를 ffmpeg로 기준 포맷에 맞춰 변환한다.
+    성공 시 변환된 임시 파일 경로, 실패 시 None.
+    (Python wave 모듈은 리샘플하지 않으므로, 엔진 혼용 시 필수)"""
+    import subprocess
+    dst = src.with_suffix(".resampled.wav")
+    cmd = ["ffmpeg", "-y", "-i", str(src),
+           "-ar", str(rate), "-ac", str(channels),
+           "-acodec", "pcm_s16le", str(dst)]
+    try:
+        result = subprocess.run(cmd, capture_output=True)
+        if result.returncode == 0 and dst.exists():
+            return dst
+    except FileNotFoundError:
+        pass
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="timing.json 기반 오디오 합치기")
     parser.add_argument("--ep", type=int, default=None, help="에피소드 번호 (예: 1 → output/ep01)")
@@ -138,6 +156,20 @@ def main():
             audio_data.extend(silence)
             current_pos = seg_end
             continue
+
+        # 파라미터 불일치 검사 — 엔진 혼용(Typecast 44.1k / Gemini 24k) 시 왜곡 방지
+        ch, sw, rate = get_wav_params(seg_file)
+        if (ch, sw, rate) != (ref_channels, ref_sampwidth, ref_rate):
+            print(f"  [경고] {seg_file.name}: {rate}Hz/{ch}ch — 기준({ref_rate}Hz/{ref_channels}ch)과 불일치, 리샘플 시도")
+            resampled = resample_wav_ffmpeg(seg_file, ref_rate, ref_channels)
+            if resampled:
+                seg_file = resampled
+            else:
+                print(f"  [오류] 리샘플 실패 — 해당 구간을 묵음으로 대체 (ffmpeg 설치 확인)")
+                silence = generate_silence_frames(seg_end - seg_start, ref_rate, ref_channels, ref_sampwidth)
+                audio_data.extend(silence)
+                current_pos = seg_end
+                continue
 
         with wave.open(str(seg_file), "rb") as wf:
             frames = wf.readframes(wf.getnframes())

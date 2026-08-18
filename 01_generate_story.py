@@ -1,6 +1,6 @@
 """
 01_generate_story.py
-Claude Sonnet 4.6을 사용하여 동화 스토리 JSON을 생성합니다.
+Claude Code CLI(claude -p, 현재 세션 모델)로 동화 스토리 JSON을 생성합니다.
 
 한국어 모드 (기본):
   python 01_generate_story.py --ep N
@@ -20,9 +20,7 @@ import sys
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-import random
 import subprocess
-import requests
 from dotenv import load_dotenv
 
 # Claude Code 중첩 세션 방지를 위해 CLAUDECODE 환경변수 제거
@@ -40,63 +38,10 @@ GEMINI_TTS_VOICES = {
     "default":    {"voice_name": "Aoede",  "speed": 1.0},
 }
 
-# ── 슈퍼톤 보이스 자동 선택 ───────────────────────────────
-SUPERTONE_URL = "https://supertoneapi.com"
-VOICE_CRITERIA = {
-    "narrator":   {"gender": "female", "age": ["young-adult", "middle-aged"], "use_case": ["narration", "audiobook", "storytelling"]},
-    "child_boy":  {"gender": "male",   "age": ["child"],                     "use_case": ["storytelling", "game", "conversational"]},
-    "child_girl": {"gender": "female", "age": ["child"],                     "use_case": ["storytelling", "game", "conversational"]},
-    "teacher":    {"gender": "female", "age": ["young-adult", "middle-aged"], "use_case": ["education", "narration", "announcement"]},
-}
-
-
-def select_supertone_voices() -> dict:
-    """슈퍼톤 API에서 캐릭터별 보이스를 자동 선택합니다."""
-    api_key = os.getenv("SUPERTONE_API_KEY")
-    if not api_key:
-        print("[WARN] SUPERTONE_API_KEY 없음 — 보이스 선택 건너뜀")
-        return {}
-
-    headers = {"x-sup-api-key": api_key}
-    resp = requests.get(f"{SUPERTONE_URL}/v1/voices/search",
-                        params={"language": "ko"}, headers=headers, timeout=30)
-    if resp.status_code != 200:
-        print(f"[WARN] 슈퍼톤 보이스 조회 실패: {resp.status_code}")
-        return {}
-
-    voices = resp.json().get("items", [])
-    selected = {}
-    used_ids = set()
-
-    for speaker in ["narrator", "child_boy", "child_girl", "teacher"]:
-        criteria = VOICE_CRITERIA[speaker]
-        scored = []
-        for v in voices:
-            if v["voice_id"] in used_ids:
-                continue
-            score = 0
-            if criteria.get("gender") and v.get("gender") == criteria["gender"]:
-                score += 100
-            if v.get("age") in criteria.get("age", []):
-                score += 80
-            overlap = set(criteria.get("use_case", [])) & set(v.get("use_cases", []))
-            score += len(overlap) * 20
-            if score > 0:
-                scored.append((score, v))
-        scored.sort(key=lambda x: -x[0])
-        top = min(3, len(scored))
-        if scored:
-            chosen = random.choice(scored[:top])[1]
-            selected[speaker] = {
-                "voice_id": chosen["voice_id"],
-                "name": chosen["name"],
-                "gender": chosen["gender"],
-                "age": chosen["age"],
-            }
-            used_ids.add(chosen["voice_id"])
-            print(f"  {speaker:12s} → {chosen['name']} ({chosen['gender']}, {chosen['age']})")
-
-    return selected
+# ── 한국어 보이스 캐스팅 안내 ─────────────────────────────
+# Supertone API 종료(2026-08-31)로 사전 보이스 선택 제거.
+# 한국어 보이스는 03_generate_tts.py가 Typecast 추천 API로
+# 캐릭터 맥락(성격·종족·역할)에 맞게 자동 캐스팅합니다.
 
 # ── BSL 에피소드 목록 (바슬즐 / 통합교과 시리즈) ──────────
 # 키: 출력 폴더 이름 (예: "bsl03" → output/bsl03)
@@ -783,7 +728,7 @@ def generate_story(ep_num: int = None, ep_info: dict = None) -> dict:
 
     # characters 배열 구조 지원 (list of {name, gender, ...})
     char_gender = {}  # name.lower() → "child_boy" / "child_girl"
-    characters_list = story.get("characters", [])
+    characters_list = chars if isinstance(chars, list) else []
     if isinstance(characters_list, list):
         for ch in characters_list:
             ch_name = ch.get("name", "").strip()
@@ -1328,16 +1273,12 @@ def main():
     # ── 보이스 자동 선택 ────────────────────────────────────
     if lang == "id":
         # 인도네시아어: Gemini TTS 보이스 (이미 story.json에 포함됨)
-        print("\n[INFO] 인도네시아어 모드 — Gemini TTS 보이스 사용 (Supertone 생략)")
+        print("\n[INFO] 인도네시아어 모드 — Gemini TTS 보이스 사용")
         if "gemini_voices" not in story.get("meta", {}):
             story["meta"]["gemini_voices"] = GEMINI_TTS_VOICES
     else:
-        # 한국어: 슈퍼톤 보이스 자동 선택
-        print("\n[INFO] 슈퍼톤 보이스 자동 선택 중...")
-        voice_map = select_supertone_voices()
-        if voice_map:
-            story.setdefault("meta", {})["supertone_voices"] = voice_map
-            print(f"[OK] {len(voice_map)}개 보이스 선택 완료 → story.json에 저장")
+        # 한국어: 보이스 캐스팅은 03_generate_tts.py에서 Typecast 추천 API로 수행
+        print("\n[INFO] 한국어 보이스는 TTS 단계에서 Typecast 맥락 캐스팅으로 자동 선택됩니다")
 
     # 출력 디렉터리 생성
     os.makedirs(out_dir, exist_ok=True)

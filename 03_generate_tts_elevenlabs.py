@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 03_generate_tts_elevenlabs.py — ElevenLabs TTS 음성 생성 (다국어)
-모델: eleven_multilingual_v2
+모델: eleven_v3 (기본, 70+ 언어·표현력 최상) / eleven_multilingual_v2 (환경변수로 전환)
+  ELEVEN_TTS_MODEL=eleven_multilingual_v2 python 03_generate_tts_elevenlabs.py ...
 사용법:
   python 03_generate_tts_elevenlabs.py --dir output/bsl02_id
   python 03_generate_tts_elevenlabs.py --dir output/bsl02_es
@@ -18,8 +19,11 @@ ELEVEN_API_KEY = os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_API_KEY")
 if not ELEVEN_API_KEY:
     print("[ERROR] ELEVENLABS_API_KEY가 .env에 없습니다."); sys.exit(1)
 
-ELEVEN_MODEL    = "eleven_multilingual_v2"
+ELEVEN_MODEL    = os.getenv("ELEVEN_TTS_MODEL", "eleven_v3")
 ELEVEN_BASE_URL = "https://api.elevenlabs.io/v1"
+# eleven_v3는 voice_settings의 세밀 stability(0.45 등)·speed를 지원하지 않음
+#   → v3 계열이면 voice_settings 생략(서버 기본값), v2 계열이면 기존 설정 유지
+ELEVEN_IS_V3    = ELEVEN_MODEL.startswith("eleven_v3") or ELEVEN_MODEL.startswith("eleven_ttv_v3")
 SILENCE_SAME    = 0.2
 SILENCE_CHANGE  = 0.5
 SILENCE_SLIDE   = 1.0
@@ -49,10 +53,12 @@ LANG_SPEED = {"ko": 1.0, "en": 1.0, "id": 0.92, "es": 1.0, "pt": 0.93, "ja": 0.9
 def eleven_tts(voice_id, text, stability=0.5, similarity=0.75, speed=1.0, retries=3):
     url = f"{ELEVEN_BASE_URL}/text-to-speech/{voice_id}"
     headers = {"xi-api-key": ELEVEN_API_KEY, "Content-Type": "application/json", "Accept": "audio/mpeg"}
-    voice_settings = {"stability": stability, "similarity_boost": similarity}
-    if speed != 1.0:
-        voice_settings["speed"] = speed
-    payload = {"text": text, "model_id": ELEVEN_MODEL, "voice_settings": voice_settings}
+    payload = {"text": text, "model_id": ELEVEN_MODEL}
+    if not ELEVEN_IS_V3:
+        voice_settings = {"stability": stability, "similarity_boost": similarity}
+        if speed != 1.0:
+            voice_settings["speed"] = speed
+        payload["voice_settings"] = voice_settings
     for i in range(retries):
         try:
             r = requests.post(url, headers=headers, json=payload, timeout=30)

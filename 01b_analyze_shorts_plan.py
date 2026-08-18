@@ -137,7 +137,8 @@ def get_slide_timings(story: dict, timing_json: dict | None) -> list:
 
     # 내레이터 보이스 속도
     voice_speed = float(
-        meta.get("supertone_voices", {}).get("narrator", {}).get("speed", 0.9)
+        (meta.get("typecast_voices") or meta.get("supertone_voices") or {})
+        .get("narrator", {}).get("speed", 0.9)
     )
 
     if timing_json:

@@ -3,12 +3,15 @@
 03_generate_tts.py — TTS 음성 생성 + timing.json 생성
 
 언어에 따라 자동으로 TTS 엔진을 선택합니다:
-  한국어 (ko): Supertone API
-  인도네시아어 (id): Google Gemini TTS (gemini-2.5-flash-preview-tts)
+  한국어 (ko): Typecast API (ssfm-v30)
+  인도네시아어 (id) 등 기타 언어: Google Gemini TTS
+
+참고: Supertone API는 2026-08-31 서비스 종료로 제거됨 → Typecast로 이전.
 
 사용법:
-  python 03_generate_tts.py --ep 1               # 한국어 ep01
-  python 03_generate_tts.py --dir output/id01    # 인도네시아어 (자동 감지)
+  python 03_generate_tts.py --ep 1                 # 한국어 ep01 (Typecast)
+  python 03_generate_tts.py --dir output/id01      # 인도네시아어 (자동 감지)
+  python 03_generate_tts.py --ep 1 --engine gemini # 한국어를 Gemini TTS로 (폴백)
 """
 
 import argparse
@@ -32,9 +35,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Gemini TTS 설정 (인도네시아어) ─────────────────────────
+# ── Gemini TTS 설정 (인도네시아어 등) ──────────────────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts"
+GEMINI_TTS_MODEL = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts")
+# 프리뷰 모델 순차 폴백 체인 (앞에서부터 시도)
+GEMINI_TTS_FALLBACK_MODELS = [
+    GEMINI_TTS_MODEL,
+    "gemini-3.1-flash-tts-preview",
+    "gemini-2.5-pro-preview-tts",
+]
 GEMINI_TTS_SAMPLE_RATE = 24000  # PCM 24kHz, 16-bit, mono
 
 # 기본 보이스 매핑 (story.json의 meta.gemini_voices로 덮어씌울 수 있음)
@@ -46,19 +55,72 @@ GEMINI_VOICE_DEFAULTS = {
     "default":    {"voice_name": "Aoede",  "speed": 1.0},
 }
 
+# Gemini 파이프라인용 언어별 퀴즈 안내 멘트
+GEMINI_QUIZ_LINES = {
+    "ko": [
+        ("quiz_intro", "자, 이제 퀴즈를 풀어볼까요?", "cheerful, inviting"),
+        ("quiz_q1",    "1번 문제입니다!",             "excited, encouraging"),
+        ("quiz_q2",    "2번 문제입니다!",             "excited, encouraging"),
+        ("quiz_q3",    "3번 문제입니다!",             "excited, encouraging"),
+        ("quiz_a1",    "정답입니다!",                 "joyful, praising"),
+        ("quiz_a2",    "정답입니다!",                 "joyful, praising"),
+        ("quiz_a3",    "정답입니다!",                 "joyful, praising"),
+    ],
+    "id": [
+        ("quiz_intro", "Yuk, kita jawab kuisnya!", "cheerful, inviting"),
+        ("quiz_q1",    "Soal nomor satu!",          "excited, encouraging"),
+        ("quiz_q2",    "Soal nomor dua!",           "excited, encouraging"),
+        ("quiz_q3",    "Soal nomor tiga!",          "excited, encouraging"),
+        ("quiz_a1",    "Jawabannya benar!",         "joyful, praising"),
+        ("quiz_a2",    "Jawabannya benar!",         "joyful, praising"),
+        ("quiz_a3",    "Jawabannya benar!",         "joyful, praising"),
+    ],
+    "en": [
+        ("quiz_intro", "Now, let's try the quiz!", "cheerful, inviting"),
+        ("quiz_q1",    "Question one!",             "excited, encouraging"),
+        ("quiz_q2",    "Question two!",             "excited, encouraging"),
+        ("quiz_q3",    "Question three!",           "excited, encouraging"),
+        ("quiz_a1",    "That's correct!",           "joyful, praising"),
+        ("quiz_a2",    "That's correct!",           "joyful, praising"),
+        ("quiz_a3",    "That's correct!",           "joyful, praising"),
+    ],
+    "es": [
+        ("quiz_intro", "¡Ahora, vamos con el quiz!", "cheerful, inviting"),
+        ("quiz_q1",    "¡Pregunta uno!",              "excited, encouraging"),
+        ("quiz_q2",    "¡Pregunta dos!",              "excited, encouraging"),
+        ("quiz_q3",    "¡Pregunta tres!",             "excited, encouraging"),
+        ("quiz_a1",    "¡Correcto!",                  "joyful, praising"),
+        ("quiz_a2",    "¡Correcto!",                  "joyful, praising"),
+        ("quiz_a3",    "¡Correcto!",                  "joyful, praising"),
+    ],
+    "pt": [
+        ("quiz_intro", "Agora, vamos ao quiz!", "cheerful, inviting"),
+        ("quiz_q1",    "Pergunta um!",           "excited, encouraging"),
+        ("quiz_q2",    "Pergunta dois!",         "excited, encouraging"),
+        ("quiz_q3",    "Pergunta três!",         "excited, encouraging"),
+        ("quiz_a1",    "Correto!",               "joyful, praising"),
+        ("quiz_a2",    "Correto!",               "joyful, praising"),
+        ("quiz_a3",    "Correto!",               "joyful, praising"),
+    ],
+}
+
 # ---------------------------------------------------------------------------
-# 슈퍼톤 API 설정
+# Typecast API 설정 (한국어)
+# 문서: https://typecast.ai/docs/api-reference/text-to-speech/text-to-speech
 # ---------------------------------------------------------------------------
-SUPERTONE_BASE_URL = "https://supertoneapi.com"
+TYPECAST_BASE_URL = "https://api.typecast.ai"
+TYPECAST_MODEL = os.getenv("TYPECAST_MODEL", "ssfm-v30")  # ssfm-v30(최신) | ssfm-v21(안정)
+TYPECAST_TEXT_LIMIT = 2000  # 요청당 최대 글자 수
 
 # ---------------------------------------------------------------------------
 # 캐릭터별 보이스 선택 기준
-# speaker → 검색 필터 (gender, age, use_case 등)
+# speaker → 검색 필터 (gender, age, use_cases — Typecast /v2/voices 값 체계)
+# age: child | teenager | young_adult | middle_age | elder
 # ---------------------------------------------------------------------------
 VOICE_SEARCH_CRITERIA = {
     "narrator": {
         "gender": "female",
-        "age": ["young-adult", "middle-aged"],
+        "age": ["young_adult", "middle_age"],
         "use_case": ["narration", "audiobook", "storytelling", "documentary"],
         "speed": 0.9,
     },
@@ -76,7 +138,7 @@ VOICE_SEARCH_CRITERIA = {
     },
     "teacher": {
         "gender": "female",
-        "age": ["young-adult", "middle-aged"],
+        "age": ["young_adult", "middle_age"],
         "use_case": ["education", "narration", "announcement", "business"],
         "speed": 0.95,
     },
@@ -85,10 +147,30 @@ VOICE_SEARCH_CRITERIA = {
 # 기본 폴백 (위 기준에 맞는 보이스 없을 때)
 DEFAULT_CRITERIA = {
     "gender": None,
-    "age": ["young-adult"],
+    "age": ["young_adult"],
     "use_case": ["storytelling", "acting"],
     "speed": 1.0,
 }
+
+# seg["emotion"] 자유 텍스트 → Typecast ssfm-v30 emotion_preset 매핑
+# 프리셋: normal, happy, sad, angry, whisper, toneup, tonedown
+_EMOTION_KEYWORDS = [
+    ("happy",   ["기쁨", "기뻐", "신남", "신나", "즐거", "행복", "happy", "joy", "excit", "cheer"]),
+    ("sad",     ["슬픔", "슬퍼", "우울", "눈물", "sad", "sorrow", "cry"]),
+    ("angry",   ["화남", "화가", "분노", "짜증", "angry", "mad", "furious"]),
+    ("whisper", ["속삭", "귓속말", "whisper", "quiet"]),
+]
+
+
+def emotion_to_preset(emotion: str):
+    """세그먼트 emotion 텍스트를 Typecast 프리셋으로 변환. 매칭 없으면 None(자동 문맥)."""
+    if not emotion:
+        return None
+    e = emotion.lower()
+    for preset, keywords in _EMOTION_KEYWORDS:
+        if any(k in e for k in keywords):
+            return preset
+    return None
 
 
 def build_dynamic_criteria(speaker: str, story: dict) -> dict:
@@ -119,7 +201,7 @@ def build_dynamic_criteria(speaker: str, story: dict) -> dict:
         # 나머지 주인공 → 젊은 성인
         return {
             "gender": gender,
-            "age": ["young-adult"],
+            "age": ["young_adult"],
             "use_case": ["storytelling", "acting", "conversational"],
             "speed": 1.0,
         }
@@ -139,7 +221,7 @@ def build_dynamic_criteria(speaker: str, story: dict) -> dict:
             if any(w in combined for w in ["마녀", "witch", "villain", "dark", "shadow", "evil", "악당"]):
                 return {
                     "gender": "female",
-                    "age": ["middle-aged"],
+                    "age": ["middle_age"],
                     "use_case": ["acting", "game", "storytelling"],
                     "speed": 0.88,
                 }
@@ -147,14 +229,14 @@ def build_dynamic_criteria(speaker: str, story: dict) -> dict:
             if any(w in combined for w in ["나무", "tree", "wise", "elder", "ancient", "현인", "장로", "할아버지", "할머니"]):
                 return {
                     "gender": "female",
-                    "age": ["middle-aged", "senior"],
+                    "age": ["middle_age", "elder"],
                     "use_case": ["narration", "audiobook", "storytelling"],
                     "speed": 0.85,
                 }
             # 기타 조연 → 젊은 성인
             return {
                 "gender": "female",
-                "age": ["young-adult"],
+                "age": ["young_adult"],
                 "use_case": ["storytelling", "acting"],
                 "speed": 0.95,
             }
@@ -172,9 +254,12 @@ ENDING_EXTRA_SECONDS = 2.0
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="슈퍼톤 TTS 음성 생성 + timing.json")
+    parser = argparse.ArgumentParser(description="TTS 음성 생성 + timing.json (한국어: Typecast / 기타: Gemini)")
     parser.add_argument("--ep", type=int, default=None, help="에피소드 번호 (예: 1 → output/ep01)")
     parser.add_argument("--dir", type=str, default=None, help="출력 디렉터리 직접 지정 (예: output/bsl01)")
+    parser.add_argument("--engine", type=str, default="typecast",
+                        choices=["typecast", "gemini"],
+                        help="한국어 TTS 엔진 (기본 typecast, 폴백 gemini)")
     parser.add_argument("--force-voice", action="store_true",
                         help="story.json meta 보이스 캐시 무시하고 새로 선택")
     parser.add_argument("--revoice", action="store_true",
@@ -183,44 +268,51 @@ def parse_args():
 
 
 # ---------------------------------------------------------------------------
-# 슈퍼톤 보이스 자동 선택
+# Typecast 보이스 자동 선택
 # ---------------------------------------------------------------------------
+def _norm_voice(v: dict) -> dict:
+    """Typecast /v2/voices 응답 필드를 내부 표준 형태로 정규화합니다."""
+    use_cases = v.get("use_cases") or v.get("use_case") or []
+    if isinstance(use_cases, str):
+        use_cases = [use_cases]
+    models = v.get("models") or ([v["model"]] if v.get("model") else [])
+    if isinstance(models, str):
+        models = [models]
+    return {
+        "voice_id": v.get("voice_id") or v.get("id", ""),
+        "name": v.get("voice_name") or v.get("name", "?"),
+        "gender": v.get("gender", "?"),
+        "age": v.get("age", "?"),
+        "use_cases": [str(u).lower() for u in use_cases],
+        "models": models,
+        "emotions": v.get("emotions", []),
+    }
+
+
 def fetch_voices(api_key: str, language: str = "ko") -> list:
-    """슈퍼톤 API에서 한국어 보이스 목록을 가져옵니다."""
-    headers = {"x-sup-api-key": api_key}
-    # 페이지네이션으로 전체 보이스 수집
-    all_items = []
-    page = 1
-    while True:
+    """Typecast API에서 보이스 목록을 가져옵니다 (모델 필터 적용)."""
+    headers = {"X-API-KEY": api_key}
+    try:
         resp = requests.get(
-            f"{SUPERTONE_BASE_URL}/v1/voices/search",
-            params={"language": language, "page": page, "page_size": 100},
+            f"{TYPECAST_BASE_URL}/v2/voices",
+            params={"model": TYPECAST_MODEL},
             headers=headers,
             timeout=30,
         )
         if resp.status_code != 200:
-            # page_size=100이 안 되면 기본값으로 재시도
-            if page == 1:
-                resp = requests.get(
-                    f"{SUPERTONE_BASE_URL}/v1/voices/search",
-                    params={"language": language},
-                    headers=headers,
-                    timeout=30,
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    return data.get("items", [])
-            break
+            # 모델 필터 미지원 시 전체 목록으로 재시도
+            resp = requests.get(f"{TYPECAST_BASE_URL}/v2/voices",
+                                headers=headers, timeout=30)
+            if resp.status_code != 200:
+                print(f"  [ERROR] 보이스 목록 HTTP {resp.status_code}: {resp.text[:150]}")
+                return []
         data = resp.json()
-        items = data.get("items", [])
-        if not items:
-            break
-        all_items.extend(items)
-        # 더 이상 페이지 없으면 종료
-        if len(items) < 100:
-            break
-        page += 1
-    return all_items
+        if isinstance(data, dict):
+            data = data.get("voices") or data.get("items") or data.get("result") or []
+        return [_norm_voice(v) for v in data if isinstance(v, dict)]
+    except Exception as e:
+        print(f"  [ERROR] 보이스 목록 조회 실패: {e}")
+        return []
 
 
 def score_voice(voice: dict, criteria: dict) -> int:
@@ -242,11 +334,113 @@ def score_voice(voice: dict, criteria: dict) -> int:
     overlap = target_uses & voice_uses
     score += len(overlap) * 20
 
-    # sona_speech_1 모델 지원 시 가산
-    if "sona_speech_1" in voice.get("models", []):
+    # 현재 사용 모델(ssfm-v30 등) 지원 시 가산
+    if TYPECAST_MODEL in voice.get("models", []):
         score += 10
 
     return score
+
+
+def build_voice_query(speaker: str, story: dict) -> str:
+    """캐릭터 정보를 바탕으로 Typecast 보이스 추천용 자연어 쿼리를 만듭니다.
+    '맥락에 맞는 목소리 캐스팅'의 핵심 — 성격·종족·역할을 설명에 녹입니다."""
+    meta = story.get("meta", {})
+    chars = meta.get("characters", {})
+
+    base_queries = {
+        "narrator":   "어린이 동화책을 따뜻하고 차분하게 낭독하는 여성 성우 목소리",
+        "child_boy":  "밝고 활기찬 어린 남자아이 목소리, 애니메이션 더빙",
+        "child_girl": "명랑하고 귀여운 어린 여자아이 목소리, 애니메이션 더빙",
+        "teacher":    "친절하고 신뢰감 있는 선생님 목소리, 어린이 교육 콘텐츠",
+    }
+    if speaker in base_queries:
+        return base_queries[speaker]
+
+    # main_1 / sub_1 등 커스텀 캐릭터 → 캐릭터 메타로 쿼리 구성
+    ch = chars.get(speaker)
+    if isinstance(ch, dict):
+        gender = "남성" if ch.get("gender") == "male" else "여성"
+        parts = [p for p in [ch.get("species", ""), ch.get("personality", "")] if p]
+        desc = ", ".join(parts) or "동화 주인공"
+        return f"어린이 동화 속 캐릭터({desc})에 어울리는 {gender} 목소리, 애니메이션 더빙"
+
+    # supporting 캐릭터
+    sup = chars.get("supporting", {})
+    if isinstance(sup, dict):
+        for k, v in sup.items():
+            if isinstance(v, dict) and (k == speaker or v.get("name") == speaker):
+                role = v.get("role", "조연 캐릭터")
+                return f"어린이 동화 속 {role} 역할에 어울리는 개성 있는 목소리, 애니메이션 더빙"
+
+    return f"어린이 동화 캐릭터 {speaker}에 어울리는 목소리, 애니메이션 더빙"
+
+
+def recommend_voice(api_key: str, query: str, used_ids: set):
+    """Typecast /v1/voices/recommendations — 자연어 설명으로 보이스 추천.
+    사용 중/블랙리스트 제외 후 첫 추천을 반환. 실패 시 None."""
+    try:
+        resp = requests.get(
+            f"{TYPECAST_BASE_URL}/v1/voices/recommendations",
+            params={"query": query},
+            headers={"X-API-KEY": api_key},
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        if isinstance(data, dict):
+            data = (data.get("voices") or data.get("recommendations")
+                    or data.get("items") or data.get("result") or [])
+        for v in data:
+            nv = _norm_voice(v)
+            if nv["voice_id"] and nv["voice_id"] not in used_ids \
+                    and nv["voice_id"] not in FORBIDDEN_VOICE_IDS:
+                return nv
+    except Exception:
+        pass
+    return None
+
+
+def cast_voices(api_key: str, voices: list, speakers: set, story: dict) -> dict:
+    """맥락 기반 캐스팅: 추천 API 우선 → 실패 시 점수 기반 선택 폴백."""
+    assigned = {}
+    used_ids = set()
+    priority = ["narrator", "child_boy", "child_girl", "teacher"]
+    sorted_speakers = sorted(
+        speakers,
+        key=lambda s: priority.index(s) if s in priority else 99,
+    )
+
+    for speaker in sorted_speakers:
+        query = build_voice_query(speaker, story)
+        chosen = recommend_voice(api_key, query, used_ids)
+        how = "맥락추천"
+
+        if not chosen:
+            how = "점수폴백"
+            criteria = build_dynamic_criteria(speaker, story)
+            candidates = []
+            for v in voices:
+                if v["voice_id"] in used_ids:
+                    continue
+                s = score_voice(v, criteria)
+                if s > 0:
+                    candidates.append((s, v))
+            candidates.sort(key=lambda x: -x[0])
+            if candidates:
+                top_n = min(3, len(candidates))
+                chosen = random.choice(candidates[:top_n])[1]
+            else:
+                remaining = [v for v in voices if v["voice_id"] not in used_ids]
+                chosen = random.choice(remaining) if remaining else None
+
+        if chosen:
+            assigned[speaker] = chosen
+            used_ids.add(chosen["voice_id"])
+            print(f"  {speaker:12s} → {chosen['name']:15s} "
+                  f"({chosen.get('gender','?')}, {chosen.get('age','?')}) [{how}]")
+
+    return assigned
 
 
 def select_voices(voices: list, speakers: set) -> dict:
@@ -321,47 +515,62 @@ def save_voice_blacklist(ep_dir: Path, blacklist: set):
     p.write_text(json.dumps(sorted(blacklist), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def generate_tts_supertone(api_key: str, voice_id: str, text: str,
-                           output_path: Path, speed: float = 1.0,
-                           pitch_shift: int = 0,
-                           ep_dir: Path = None) -> str:
-    """슈퍼톤 API로 TTS를 생성하고 WAV로 저장합니다.
+def generate_tts_typecast(api_key: str, voice_id: str, text: str,
+                          output_path: Path, speed: float = 1.0,
+                          pitch_shift: int = 0, emotion: str = "",
+                          ep_dir: Path = None, max_retries: int = 3) -> str:
+    """Typecast API로 TTS를 생성하고 WAV로 저장합니다.
     Returns: "ok" | "forbidden" | "error"
     """
-    headers = {"x-sup-api-key": api_key}
-    url = f"{SUPERTONE_BASE_URL}/v1/text-to-speech/{voice_id}"
+    headers = {"X-API-KEY": api_key}
+    url = f"{TYPECAST_BASE_URL}/v1/text-to-speech"
     payload = {
-        "text": text,
-        "language": "ko",
-        "model": "sona_speech_1",
-        "output_format": "wav",
-        "include_phonemes": False,
-        "voice_settings": {
-            "pitch_shift": pitch_shift,
-            "pitch_variance": 1,
-            "speed": speed,
-            "similarity": 3,
-            "text_guidance": 1,
+        "voice_id": voice_id,
+        "text": text[:TYPECAST_TEXT_LIMIT],
+        "model": TYPECAST_MODEL,
+        "language": "kor",  # ISO 639-3
+        "output": {
+            "audio_format": "wav",
+            "audio_tempo": max(0.5, min(2.0, speed)),
+            "audio_pitch": max(-12, min(12, int(pitch_shift))),
         },
     }
+    preset = emotion_to_preset(emotion)
+    if preset:
+        payload["prompt"] = {
+            "emotion_type": "preset",
+            "emotion_preset": preset,
+            "emotion_intensity": 1.0,
+        }
 
-    try:
-        resp = requests.post(url, json=payload, headers=headers, timeout=120)
-        if resp.status_code == 403:
-            FORBIDDEN_VOICE_IDS.add(voice_id)
-            if ep_dir is not None:
-                save_voice_blacklist(ep_dir, FORBIDDEN_VOICE_IDS)
-            print(f"    [403] voice_id={voice_id[:12]}... 권한 없음 — 블랙리스트 추가")
-            return "forbidden"
-        if resp.status_code != 200:
-            print(f"    [ERROR] HTTP {resp.status_code}: {resp.text[:150]}")
-            return "error"
-        with open(output_path, "wb") as f:
-            f.write(resp.content)
-        return "ok"
-    except Exception as e:
-        print(f"    [ERROR] 요청 실패: {e}")
-        return "error"
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=120)
+            if resp.status_code in (403, 404):
+                FORBIDDEN_VOICE_IDS.add(voice_id)
+                if ep_dir is not None:
+                    save_voice_blacklist(ep_dir, FORBIDDEN_VOICE_IDS)
+                print(f"    [{resp.status_code}] voice_id={voice_id[:14]}... 사용 불가 — 블랙리스트 추가")
+                return "forbidden"
+            if resp.status_code == 429:
+                wait = 2 ** attempt
+                print(f"    [429] 레이트리밋 — {wait}초 대기 후 재시도 ({attempt}/{max_retries})")
+                time.sleep(wait)
+                continue
+            if resp.status_code == 402:
+                print(f"    [402] Typecast 크레딧 부족: {resp.text[:150]}")
+                return "error"
+            if resp.status_code != 200:
+                print(f"    [ERROR] HTTP {resp.status_code}: {resp.text[:150]}")
+                return "error"
+            with open(output_path, "wb") as f:
+                f.write(resp.content)
+            return "ok"
+        except Exception as e:
+            print(f"    [ERROR] 요청 실패 ({attempt}/{max_retries}): {e}")
+            if attempt < max_retries:
+                time.sleep(3)
+    return "error"
 
 
 def get_wav_duration(wav_path: Path) -> float:
@@ -384,7 +593,8 @@ def get_wav_duration(wav_path: Path) -> float:
 
 
 def concat_wav_files(wav_paths: list, output_path: Path):
-    """Python wave 모듈만 사용하여 WAV 파일들을 하나로 합칩니다."""
+    """Python wave 모듈만 사용하여 WAV 파일들을 하나로 합칩니다.
+    파라미터가 다른 파일이 섞이면 경고 후 제외합니다 (wave는 리샘플 불가)."""
     if not wav_paths:
         return
 
@@ -396,6 +606,12 @@ def concat_wav_files(wav_paths: list, output_path: Path):
 
     for p in wav_paths[1:]:
         with wave.open(str(p), "rb") as wf:
+            if (wf.getnchannels(), wf.getsampwidth(), wf.getframerate()) != \
+                    (nchannels, sampwidth, framerate):
+                print(f"    [경고] {Path(p).name}: 오디오 파라미터 불일치 "
+                      f"({wf.getframerate()}Hz≠{framerate}Hz) — 합치기에서 제외. "
+                      f"해당 세그먼트를 같은 엔진으로 재생성하세요.")
+                continue
             frames.append(wf.readframes(wf.getnframes()))
 
     all_data = b"".join(frames)
@@ -449,12 +665,25 @@ def apply_speed_ffmpeg(input_path: Path, output_path: Path, speed: float) -> boo
     return result.returncode == 0
 
 
+_gemini_model_idx = 0  # 폴백 체인 진행 상태 (한 번 폴백하면 이후 요청도 유지)
+
+
+def _gemini_models() -> list:
+    """중복 제거된 Gemini TTS 폴백 모델 체인."""
+    seen = []
+    for m in GEMINI_TTS_FALLBACK_MODELS:
+        if m and m not in seen:
+            seen.append(m)
+    return seen
+
+
 def generate_tts_gemini(voice_name: str, text: str, emotion: str,
                         output_path: Path, speed: float = 1.0,
                         max_retries: int = 3) -> str:
     """Gemini TTS API로 음성 생성 → WAV 저장.
     Returns: "ok" | "error"
     """
+    global _gemini_model_idx
     try:
         from google import genai
         from google.genai import types as gt
@@ -473,10 +702,12 @@ def generate_tts_gemini(voice_name: str, text: str, emotion: str,
     # 감정 지시어를 프롬프트 앞에 주입
     prompt = f"[{emotion}] {text}" if emotion else text
 
+    models = _gemini_models()
     for attempt in range(1, max_retries + 1):
+        model = models[min(_gemini_model_idx, len(models) - 1)]
         try:
             response = client.models.generate_content(
-                model=GEMINI_TTS_MODEL,
+                model=model,
                 contents=prompt,
                 config=gt.GenerateContentConfig(
                     response_modalities=["AUDIO"],
@@ -523,22 +754,29 @@ def generate_tts_gemini(voice_name: str, text: str, emotion: str,
             return "ok"
 
         except Exception as e:
-            print(f"    [WARN] 시도 {attempt}/{max_retries} 실패: {e}")
+            msg = str(e).lower()
+            print(f"    [WARN] 시도 {attempt}/{max_retries} 실패 ({model}): {e}")
+            # 모델 미지원/쿼터 초과 → 다음 폴백 모델로 전환
+            if (_gemini_model_idx < len(models) - 1 and
+                    any(k in msg for k in ["not found", "404", "quota",
+                                           "resource_exhausted", "429", "permission"])):
+                _gemini_model_idx += 1
+                print(f"    [폴백] Gemini TTS 모델 전환 → {models[_gemini_model_idx]}")
             if attempt < max_retries:
                 time.sleep(5)
 
     return "error"
 
 
-def run_gemini_tts_pipeline(ep_dir: Path, story: dict):
-    """인도네시아어(id) 에피소드에 대해 Gemini TTS로 전체 음성을 생성합니다."""
+def run_gemini_tts_pipeline(ep_dir: Path, story: dict, lang: str = "id"):
+    """Gemini TTS로 전체 음성을 생성합니다 (id 기본, ko 폴백 및 기타 언어 지원)."""
     slides = story.get("slides", [])
     audio_dir = ep_dir / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
 
     # 보이스 맵: story.json의 gemini_voices 우선, 없으면 기본값
     voice_cfg = story.get("meta", {}).get("gemini_voices", GEMINI_VOICE_DEFAULTS)
-    print(f"[인도네시아어 TTS] Gemini TTS 엔진 ({GEMINI_TTS_MODEL})")
+    print(f"[{lang} TTS] Gemini TTS 엔진 ({GEMINI_TTS_MODEL})")
     print(f"  보이스 설정:")
     for spk, cfg in voice_cfg.items():
         if spk != "default":
@@ -601,21 +839,13 @@ def run_gemini_tts_pipeline(ep_dir: Path, story: dict):
                 print(f"  -> 합치기 실패: {e}")
         print()
 
-    # ── 퀴즈 TTS (인도네시아어) ──────────────────────────────
+    # ── 퀴즈 TTS (언어별 안내 멘트) ──────────────────────────
     narrator_vc = voice_cfg.get("narrator", voice_cfg.get("default", {"voice_name": "Kore", "speed": 0.95}))
     quiz_voice  = narrator_vc["voice_name"]
     quiz_speed  = float(narrator_vc.get("speed", 0.95))
 
-    print("[퀴즈 TTS] 인도네시아어 안내 멘트 생성 중...")
-    quiz_lines = [
-        ("quiz_intro", "Yuk, kita jawab kuisnya!",         "cheerful, inviting"),
-        ("quiz_q1",    "Soal nomor satu!",                  "excited, encouraging"),
-        ("quiz_q2",    "Soal nomor dua!",                   "excited, encouraging"),
-        ("quiz_q3",    "Soal nomor tiga!",                  "excited, encouraging"),
-        ("quiz_a1",    "Jawabannya benar!",                 "joyful, praising"),
-        ("quiz_a2",    "Jawabannya benar!",                 "joyful, praising"),
-        ("quiz_a3",    "Jawabannya benar!",                 "joyful, praising"),
-    ]
+    print(f"[퀴즈 TTS] {lang} 안내 멘트 생성 중...")
+    quiz_lines = GEMINI_QUIZ_LINES.get(lang, GEMINI_QUIZ_LINES["en"])
     for fname, text, emotion in quiz_lines:
         out_path = audio_dir / f"{fname}.wav"
         if out_path.exists():
@@ -641,7 +871,7 @@ def run_gemini_tts_pipeline(ep_dir: Path, story: dict):
 
 
 # ---------------------------------------------------------------------------
-# timing.json 빌더 (Supertone / Gemini TTS 공통)
+# timing.json 빌더 (Typecast / Gemini TTS 공통)
 # ---------------------------------------------------------------------------
 
 def _build_timing_json(ep_dir: Path, story: dict, slides: list,
@@ -763,17 +993,19 @@ def main():
     print(f"  출력 폴더: {audio_dir}")
     print()
 
-    # ── 인도네시아어 → Gemini TTS 분기 ────────────────────
-    if lang == "id":
-        slide_segments_map = run_gemini_tts_pipeline(ep_dir, story)
+    # ── 비한국어 또는 --engine gemini → Gemini TTS 분기 ────
+    if lang != "ko" or args.engine == "gemini":
+        slide_segments_map = run_gemini_tts_pipeline(ep_dir, story, lang=lang)
         # timing.json 생성은 아래 공통 로직에서 처리
         _build_timing_json(ep_dir, story, slides, audio_dir, slide_segments_map)
         return
 
-    # ── 한국어 → Supertone TTS ─────────────────────────────
-    api_key = os.getenv("SUPERTONE_API_KEY")
+    # ── 한국어 → Typecast TTS ──────────────────────────────
+    api_key = os.getenv("TYPECAST_API_KEY")
     if not api_key:
-        print("[ERROR] SUPERTONE_API_KEY가 .env에 없습니다")
+        print("[ERROR] TYPECAST_API_KEY가 .env에 없습니다")
+        print("  발급: https://studio.typecast.ai/developers/api (모델: ssfm-v30)")
+        print("  임시 대안: --engine gemini 로 Gemini TTS 사용 가능")
         return
 
     # ------------------------------------------------------------------
@@ -785,31 +1017,43 @@ def main():
         for seg in slide.get("tts_segments", []):
             all_speakers.add(seg.get("speaker", "narrator"))
 
-    # story.json meta에 저장된 보이스 캐시
-    meta_voice_cache = story.get("meta", {}).get("supertone_voices", {})
-
-    # story.json에 사전 선택된 보이스가 있으면 우선 사용 (구 필드명 호환)
-    pre_selected = meta_voice_cache
+    # story.json meta에 저장된 보이스 캐시 (Typecast 전환 후 구 supertone_voices는 무시)
+    meta_voice_cache = story.get("meta", {}).get("typecast_voices", {})
 
     voice_cache_path = audio_dir / "voice_selection.json"
     all_voices = None  # 보이스 목록 캐시 (한 번만 API 조회)
+
+    def _is_typecast_map(vmap: dict) -> bool:
+        """캐시된 보이스맵이 Typecast voice_id(tc_/uc_ 접두사)인지 검증.
+        구 Supertone 캐시가 남아 있으면 자동 폐기하기 위함."""
+        ids = [v.get("voice_id", "") for v in vmap.values() if isinstance(v, dict)]
+        return bool(ids) and all(str(i).startswith(("tc_", "uc_")) for i in ids)
 
     # --force-voice / --revoice: 캐시 파일 삭제 후 재선택
     if ignore_voice_cache:
         print("[보이스 선택] --force-voice / --revoice: 기존 캐시 무시, 새로 선택합니다")
         if voice_cache_path.exists():
             voice_cache_path.unlink()
-        pre_selected = {}
+        meta_voice_cache = {}
+
+    voice_map = None
 
     if voice_cache_path.exists():
         # 캐시 파일이 있으면 (직접 편집 포함) 우선 사용
-        print("[보이스 선택] 파일 캐시에서 로드:")
         with open(voice_cache_path, "r", encoding="utf-8") as f:
-            voice_map = json.load(f)
-        for speaker, info in voice_map.items():
-            print(f"  {speaker:12s} → {info['name']:15s} ({info.get('gender','?')}, {info.get('age','?')})")
-    elif meta_voice_cache and not ignore_voice_cache:
-        # story.json meta.supertone_voices 캐시 사용 (API fetch 생략)
+            cached = json.load(f)
+        if _is_typecast_map(cached):
+            print("[보이스 선택] 파일 캐시에서 로드:")
+            voice_map = cached
+            for speaker, info in voice_map.items():
+                print(f"  {speaker:12s} → {info['name']:15s} ({info.get('gender','?')}, {info.get('age','?')})")
+        else:
+            print("[보이스 선택] 구 Supertone 캐시 감지 — 폐기 후 Typecast 보이스 새로 선택")
+            voice_cache_path.unlink()
+
+    if voice_map is None and meta_voice_cache and not ignore_voice_cache \
+            and _is_typecast_map(meta_voice_cache):
+        # story.json meta.typecast_voices 캐시 사용 (API fetch 생략)
         print("[보이스 선택] story.json meta 캐시에서 로드 (API fetch 생략):")
         voice_map = {}
         for speaker, info in meta_voice_cache.items():
@@ -825,27 +1069,15 @@ def main():
         # 파일 캐시도 동기화
         with open(voice_cache_path, "w", encoding="utf-8") as f:
             json.dump(voice_map, f, ensure_ascii=False, indent=2)
-    elif pre_selected and not ignore_voice_cache:
-        print("[보이스 선택] story.json에서 사전 선택된 보이스 로드:")
-        voice_map = {}
-        for speaker, info in pre_selected.items():
-            criteria = VOICE_SEARCH_CRITERIA.get(speaker, DEFAULT_CRITERIA)
-            voice_map[speaker] = {
-                "voice_id": info["voice_id"],
-                "name": info["name"],
-                "gender": info["gender"],
-                "age": info["age"],
-                "speed": criteria.get("speed", 1.0),
-            }
-            print(f"  {speaker:12s} → {info['name']:15s} ({info['gender']}, {info['age']})")
-    else:
-        print("[보이스 선택] 슈퍼톤 보이스 목록 조회 중...")
+
+    if voice_map is None:
+        print(f"[보이스 선택] Typecast 보이스 목록 조회 중... (model={TYPECAST_MODEL})")
         all_voices = fetch_voices(api_key)
         if not all_voices:
             print("[ERROR] 보이스 목록을 가져올 수 없습니다.")
             return
-        print(f"  총 {len(all_voices)}개 보이스 중 캐릭터별 자동 선택:")
-        selected = select_voices(all_voices, all_speakers)
+        print(f"  총 {len(all_voices)}개 보이스 중 캐릭터별 맥락 캐스팅:")
+        selected = cast_voices(api_key, all_voices, all_speakers, story)
         voice_map = {}
         for speaker, voice in selected.items():
             criteria = VOICE_SEARCH_CRITERIA.get(speaker, DEFAULT_CRITERIA)
@@ -859,9 +1091,9 @@ def main():
         # 파일 캐시 저장
         with open(voice_cache_path, "w", encoding="utf-8") as f:
             json.dump(voice_map, f, ensure_ascii=False, indent=2)
-        # story.json meta.supertone_voices 에도 저장 (다음 실행 시 API fetch 생략)
+        # story.json meta.typecast_voices 에도 저장 (다음 실행 시 API fetch 생략)
         try:
-            story.setdefault("meta", {})["supertone_voices"] = {
+            story.setdefault("meta", {})["typecast_voices"] = {
                 spk: {
                     "voice_id": vi["voice_id"],
                     "name": vi["name"],
@@ -870,9 +1102,11 @@ def main():
                 }
                 for spk, vi in voice_map.items()
             }
+            # 구 Supertone 캐시 제거 (혼동 방지)
+            story.get("meta", {}).pop("supertone_voices", None)
             with open(story_path, "w", encoding="utf-8") as f:
                 json.dump(story, f, ensure_ascii=False, indent=2)
-            print("  [meta] story.json meta.supertone_voices 저장 완료")
+            print("  [meta] story.json meta.typecast_voices 저장 완료")
         except Exception as e:
             print(f"  [WARN] story.json meta 저장 실패: {e}")
 
@@ -900,14 +1134,18 @@ def main():
             supplemented = {}
             for speaker in sorted(missing_speakers):
                 criteria = build_dynamic_criteria(speaker, story)
-                candidates = []
-                for v in all_voices:
-                    if v["voice_id"] in used_ids:
-                        continue
-                    s = score_voice(v, criteria)
-                    if s > 0:
-                        candidates.append((s, v))
-                candidates.sort(key=lambda x: -x[0])
+                # 1순위: 맥락 기반 추천
+                chosen = recommend_voice(api_key, build_voice_query(speaker, story), used_ids)
+                candidates = [(0, chosen)] if chosen else []
+                if not candidates:
+                    # 2순위: 점수 기반 폴백
+                    for v in all_voices:
+                        if v["voice_id"] in used_ids:
+                            continue
+                        s = score_voice(v, criteria)
+                        if s > 0:
+                            candidates.append((s, v))
+                    candidates.sort(key=lambda x: -x[0])
                 if not candidates:
                     # 점수 0이어도 미사용 보이스에서 랜덤 선택
                     remaining = [v for v in all_voices if v["voice_id"] not in used_ids]
@@ -938,7 +1176,7 @@ def main():
                     json.dump(cache_data, f, ensure_ascii=False, indent=2)
                 # story.json meta도 업데이트
                 try:
-                    story.setdefault("meta", {}).setdefault("supertone_voices", {}).update({
+                    story.setdefault("meta", {}).setdefault("typecast_voices", {}).update({
                         spk: {
                             "voice_id": vi["voice_id"],
                             "name": vi["name"],
@@ -990,9 +1228,10 @@ def main():
             print(f"  [{slide_num:02d}-{seg_idx:02d}] [{speaker}] — 보이스 없음, 건너뜀")
             return (slide_num, seg_idx, seg, seg_path)
 
-        result = generate_tts_supertone(api_key, voice_id, text, seg_path,
-                                        speed=speed, pitch_shift=pitch_shift,
-                                        ep_dir=ep_dir)
+        result = generate_tts_typecast(api_key, voice_id, text, seg_path,
+                                       speed=speed, pitch_shift=pitch_shift,
+                                       emotion=seg.get("emotion", ""),
+                                       ep_dir=ep_dir)
         if result == "ok":
             print(f"  [{slide_num:02d}-{seg_idx:02d}] [{speaker}] voice={voice_name} — 완료")
         elif result == "forbidden":
@@ -1037,9 +1276,10 @@ def main():
             if fallback:
                 criteria = VOICE_SEARCH_CRITERIA.get(speaker, DEFAULT_CRITERIA)
                 print(f"  [{slide_num:02d}-{seg_idx:02d}] [{speaker}] 교체 보이스 → {fallback['name']} 재시도...")
-                r2 = generate_tts_supertone(api_key, fallback["voice_id"], text, seg_path,
-                                            speed=criteria.get("speed", 1.0),
-                                            ep_dir=ep_dir)
+                r2 = generate_tts_typecast(api_key, fallback["voice_id"], text, seg_path,
+                                           speed=criteria.get("speed", 1.0),
+                                           emotion=seg.get("emotion", ""),
+                                           ep_dir=ep_dir)
                 if r2 == "ok":
                     print(f"  [{slide_num:02d}-{seg_idx:02d}] [{speaker}] voice={fallback['name']} — 완료(교체)")
                 else:
@@ -1218,7 +1458,7 @@ def main():
     # 3단계: 요약 출력
     # ------------------------------------------------------------------
     print("=" * 55)
-    print("  TTS 생성 완료 — 요약 (슈퍼톤)")
+    print(f"  TTS 생성 완료 — 요약 (Typecast {TYPECAST_MODEL})")
     print("=" * 55)
     print(f"  총 세그먼트 수 : {total_segment_count}")
     print(f"  총 재생 시간   : {total_duration:.3f}초 ({total_duration/60:.1f}분)")
@@ -1268,9 +1508,10 @@ def main():
             if out_path.exists():
                 print(f"  {fname}.wav — 이미 존재, 건너뜀")
                 continue
-            ok = generate_tts_supertone(api_key, mascot_voice_id, text, out_path,
-                                        speed=mascot_speed, ep_dir=ep_dir)
-            if ok:
+            ok = generate_tts_typecast(api_key, mascot_voice_id, text, out_path,
+                                       speed=mascot_speed, emotion="기쁨",
+                                       ep_dir=ep_dir)
+            if ok == "ok":
                 print(f"  {fname}.wav — 완료")
             else:
                 print(f"  {fname}.wav — 실패")
@@ -1288,9 +1529,10 @@ def main():
         if shorts_hook_path.exists():
             print(f"  shorts_hook.wav — 이미 존재, 건너뜀")
         else:
-            ok = generate_tts_supertone(api_key, mascot_voice_id, hook_line, shorts_hook_path,
-                                        speed=mascot_speed, ep_dir=ep_dir)
-            if ok:
+            ok = generate_tts_typecast(api_key, mascot_voice_id, hook_line, shorts_hook_path,
+                                       speed=mascot_speed, emotion="신남",
+                                       ep_dir=ep_dir)
+            if ok == "ok":
                 print(f"  shorts_hook.wav — 완료")
             else:
                 print(f"  shorts_hook.wav — 실패")

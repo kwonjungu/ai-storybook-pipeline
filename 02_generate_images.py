@@ -3,13 +3,19 @@
 02_generate_images.py
 story.json의 각 슬라이드에 대해 Gemini 2.5 Flash Image API로 이미지를 생성합니다.
 
+캐릭터 일관성 (multicultural-board 패턴 이식):
+  Phase A. 캐릭터 시트(전신·정면·중립 포즈)를 먼저 생성 → characters/
+  Phase B. 슬라이드 이미지 생성 시 해당 캐릭터 시트를 레퍼런스로 첨부
+           + 프롬프트 최상단 STRICT 가드로 동일 디자인 강제
+
 기본: Batch API (50% 할인, 비동기 처리, ~수분~수시간 소요)
 옵션: --realtime (즉시 생성, 비용 2배)
 
 사용법:
-  python 02_generate_images.py --ep 3           # 배치 모드 (기본, 50% 할인)
+  python 02_generate_images.py --ep 3             # 배치 모드 (기본, 50% 할인)
   python 02_generate_images.py --ep 3 --realtime  # 실시간 모드 (즉시 생성)
-  python 02_generate_images.py --dir output/bsl01  # 디렉터리 지정
+  python 02_generate_images.py --dir output/bsl01 # 디렉터리 지정
+  python 02_generate_images.py --ep 3 --no-char-ref  # 캐릭터 레퍼런스 없이 (구 방식)
 """
 
 import argparse
@@ -32,18 +38,122 @@ load_dotenv()
 # Gemini image generation model
 GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
+# 슬라이드당 최대 캐릭터 레퍼런스 수 (요청 크기·품질 균형)
+MAX_REFS_PER_IMAGE = 3
+
+# 캐릭터 레퍼런스 사용 시 프롬프트 최상단에 삽입하는 STRICT 가드
+# (문장 중간에 넣으면 무시되는 경향이 있어 반드시 맨 앞에 배치)
+CHAR_REF_GUARD = (
+    "CHARACTER REFERENCE (STRICT): The attached image(s) show the exact "
+    "character design(s) for this story. Redraw the SAME character(s) in the "
+    "new scene — identical species, body shape, colors, face, and "
+    "clothing/accessories. Do NOT invent a different-looking character. "
+)
+
+
+# ======================================================================
+# Phase A: 캐릭터 시트 선행 생성 (일관성 레퍼런스)
+# ======================================================================
+
+def collect_characters(story) -> dict:
+    """meta.characters에서 시트 생성 대상 캐릭터를 수집합니다.
+    Returns: {key: {"name": str, "appearance_en": str}}
+    """
+    characters = story.get("meta", {}).get("characters") or {}
+    result = {}
+    for key, val in characters.items():
+        if key == "supporting":
+            continue
+        if isinstance(val, dict) and val.get("appearance_en"):
+            result[key] = {
+                "name": val.get("name_en") or val.get("name") or key,
+                "appearance_en": val["appearance_en"],
+            }
+    for key, val in (characters.get("supporting") or {}).items():
+        if isinstance(val, dict) and val.get("appearance_en"):
+            result[f"supporting_{key}"] = {
+                "name": val.get("name_en") or val.get("name") or key,
+                "appearance_en": val["appearance_en"],
+                "match_key": key,
+            }
+    return result
+
+
+def build_char_sheet_prompt(info: dict) -> str:
+    """전신 캐릭터 시트 프롬프트 (정면·중립 포즈·깨끗한 단색 배경)."""
+    return (
+        f"Full-body character sheet of {info['name']}: {info['appearance_en']} "
+        "Front view, standing, neutral friendly pose, whole body visible from "
+        "head to toe, centered, clean solid soft pastel background, "
+        "no other characters, no props, no text, no letters, no words. "
+        "Children's picture book illustration style, bright clean natural "
+        "colors, NEUTRAL to COOL color temperature, no yellow or amber cast."
+    )
+
+
+def generate_character_sheets(client, story, ep_dir, force=False) -> dict:
+    """캐릭터 시트를 먼저 생성합니다 (실시간, 소량).
+    Returns: {key: Path} — 생성/기존 시트 경로 맵
+    """
+    chars = collect_characters(story)
+    if not chars:
+        print("[캐릭터] meta.characters에 appearance_en 없음 — 캐릭터 시트 생략")
+        return {}
+
+    char_dir = ep_dir / "characters"
+    char_dir.mkdir(parents=True, exist_ok=True)
+    sheets = {}
+
+    print(f"[캐릭터] 시트 선행 생성 — {len(chars)}명 (일관성 레퍼런스)")
+    for key, info in chars.items():
+        sheet_path = char_dir / f"{key}.png"
+        if sheet_path.exists() and not force:
+            print(f"  {key:20s} — 이미 존재, 재사용")
+            sheets[key] = sheet_path
+            continue
+        prompt = build_char_sheet_prompt(info)
+        print(f"  {key:20s} ({info['name']}) 생성 중...")
+        ok = generate_image_gemini(client, prompt, sheet_path, aspect_ratio="1:1")
+        if ok:
+            sheets[key] = sheet_path
+        else:
+            print(f"  [WARN] {key} 캐릭터 시트 생성 실패 — 해당 캐릭터는 텍스트 잠금만 적용")
+        time.sleep(1)
+    print()
+    return sheets
+
+
+def _refs_for_slide(image_prompt: str, chars: dict, char_sheets: dict) -> list:
+    """슬라이드 프롬프트에 등장하는 캐릭터의 시트 경로 목록 (최대 MAX_REFS_PER_IMAGE).
+    main_* 캐릭터는 항상 포함, supporting은 프롬프트에 언급될 때만."""
+    refs = []
+    pl = image_prompt.lower()
+    for key, path in char_sheets.items():
+        info = chars.get(key, {})
+        if key.startswith("main_"):
+            refs.append(path)
+            continue
+        match_key = info.get("match_key", key)
+        name = (info.get("name") or "").split()
+        first = name[0].lower() if name else ""
+        if match_key.replace("_", " ").lower() in pl or (first and first in pl):
+            refs.append(path)
+    return refs[:MAX_REFS_PER_IMAGE]
+
 
 # ======================================================================
 # 프롬프트 빌드 (공통)
 # ======================================================================
 
-def build_prompts(story, slides, ep_dir, force=False):
+def build_prompts(story, slides, ep_dir, force=False, char_sheets=None):
     """슬라이드별 이미지 프롬프트를 빌드하고 생성 대상 목록을 반환한다.
 
     Returns:
-        tasks: list of dict {slide_num, prompt, aspect_ratio, output_path}
+        tasks: list of dict {slide_num, prompt, aspect_ratio, output_path, ref_paths}
         skipped: int
     """
+    char_sheets = char_sheets or {}
+    all_chars = collect_characters(story)
     meta = story.get("meta", {})
     characters = meta.get("characters") or {}
     main1_appearance = (characters.get("main_1") or {}).get("appearance_en", "")
@@ -123,12 +233,17 @@ def build_prompts(story, slides, ep_dir, force=False):
                 "no posters with legible text, no signs with words"
             )
 
+        # 캐릭터 레퍼런스 (Phase A에서 생성한 시트) + STRICT 가드 (반드시 최상단)
+        ref_paths = _refs_for_slide(image_prompt, all_chars, char_sheets)
+        guard = CHAR_REF_GUARD if ref_paths else ""
+
         # 16:9 (기본)
         tasks.append({
             "slide_num": slide_num,
-            "prompt": image_prompt,
+            "prompt": guard + image_prompt,
             "aspect_ratio": "16:9",
             "output_path": image_path,
+            "ref_paths": ref_paths,
         })
 
         # 9:16 (Shorts용)
@@ -138,6 +253,7 @@ def build_prompts(story, slides, ep_dir, force=False):
                 print(f"  [9:16] 이미 존재 — 건너뜀: {v_path.name}")
             else:
                 vertical_prompt = (
+                    guard +
                     "Vertical portrait composition for 9:16 aspect ratio. "
                     "All important subjects and scene elements centered in the middle of the frame, "
                     "with safe margins on all sides. "
@@ -149,6 +265,7 @@ def build_prompts(story, slides, ep_dir, force=False):
                     "prompt": vertical_prompt,
                     "aspect_ratio": "9:16",
                     "output_path": v_path,
+                    "ref_paths": ref_paths,
                 })
 
     return tasks, skipped
@@ -158,17 +275,35 @@ def build_prompts(story, slides, ep_dir, force=False):
 # 실시간 모드 (기존 방식)
 # ======================================================================
 
+def _load_ref_parts(ref_paths):
+    """캐릭터 시트 파일 → google-genai Part 목록 (레퍼런스 먼저, 텍스트는 뒤)."""
+    from google.genai import types
+    parts = []
+    for p in ref_paths or []:
+        try:
+            parts.append(types.Part.from_bytes(
+                data=Path(p).read_bytes(), mime_type="image/png"))
+        except Exception as e:
+            print(f"    [WARN] 레퍼런스 로드 실패 ({Path(p).name}): {e}")
+    return parts
+
+
 def generate_image_gemini(client, prompt: str, output_path: Path,
                           aspect_ratio: str = "16:9",
-                          max_retries: int = 3) -> bool:
-    """Gemini API로 이미지 생성 후 저장. 성공 시 True 반환."""
+                          max_retries: int = 3,
+                          ref_paths: list = None) -> bool:
+    """Gemini API로 이미지 생성 후 저장. 성공 시 True 반환.
+    ref_paths가 있으면 캐릭터 시트를 레퍼런스로 첨부 (동일 디자인 유지)."""
     from google.genai import types
+
+    ref_parts = _load_ref_parts(ref_paths)
+    contents = ref_parts + [prompt] if ref_parts else prompt
 
     for attempt in range(1, max_retries + 1):
         try:
             response = client.models.generate_content(
                 model=GEMINI_IMAGE_MODEL,
-                contents=prompt,
+                contents=contents,
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE"],
                     image_config=types.ImageConfig(
@@ -221,10 +356,13 @@ def run_realtime(client, tasks):
         slide_num = task["slide_num"]
         ar = task["aspect_ratio"]
         preview = task["prompt"][:220] + ("..." if len(task["prompt"]) > 220 else "")
-        print(f"[슬라이드 {slide_num:02d} {ar}] 생성 중...")
+        n_refs = len(task.get("ref_paths") or [])
+        print(f"[슬라이드 {slide_num:02d} {ar}] 생성 중..." +
+              (f" (캐릭터 레퍼런스 {n_refs}장)" if n_refs else ""))
         print(f"  프롬프트 ({len(task['prompt'])}자): {preview}")
 
-        ok = generate_image_gemini(client, task["prompt"], task["output_path"], ar)
+        ok = generate_image_gemini(client, task["prompt"], task["output_path"], ar,
+                                   ref_paths=task.get("ref_paths"))
         if ok:
             generated += 1
         else:
@@ -257,14 +395,34 @@ def run_batch(client, tasks, ep_dir):
     jsonl_path = ep_dir / f"batch_images_{int(time.time())}.jsonl"
     task_map = {}  # key → task
 
+    # 캐릭터 시트 base64 캐시 (여러 슬라이드가 같은 시트 공유)
+    ref_b64_cache = {}
+
+    def _ref_inline_parts(ref_paths):
+        parts = []
+        for p in ref_paths or []:
+            p = str(p)
+            if p not in ref_b64_cache:
+                try:
+                    ref_b64_cache[p] = base64.b64encode(Path(p).read_bytes()).decode("ascii")
+                except Exception as e:
+                    print(f"  [WARN] 레퍼런스 로드 실패 ({Path(p).name}): {e}")
+                    ref_b64_cache[p] = None
+            if ref_b64_cache[p]:
+                parts.append({"inlineData": {"mimeType": "image/png",
+                                             "data": ref_b64_cache[p]}})
+        return parts
+
     with open(jsonl_path, "w", encoding="utf-8") as f:
         for i, task in enumerate(tasks):
             key = f"slide_{task['slide_num']:02d}_{task['aspect_ratio'].replace(':', 'x')}"
             task_map[key] = task
+            # 레퍼런스 이미지 먼저, 텍스트는 마지막 (일관성 조건부 생성)
+            parts = _ref_inline_parts(task.get("ref_paths")) + [{"text": task["prompt"]}]
             request = {
                 "key": key,
                 "request": {
-                    "contents": [{"parts": [{"text": task["prompt"]}]}],
+                    "contents": [{"parts": parts}],
                     "generation_config": {
                         "responseModalities": ["IMAGE"],
                         "imageConfig": {
@@ -419,6 +577,8 @@ def main():
     parser.add_argument("--force", action="store_true", help="이미 존재하는 이미지도 재생성")
     parser.add_argument("--realtime", action="store_true", help="실시간 모드 (즉시 생성, 비용 2배)")
     parser.add_argument("--batch", action="store_true", default=True, help="배치 모드 (기본값, 50%% 할인)")
+    parser.add_argument("--no-char-ref", action="store_true",
+                        help="캐릭터 시트 선행 생성/레퍼런스 첨부 비활성화 (구 방식)")
     args = parser.parse_args()
 
     # --realtime이 지정되면 batch 비활성화
@@ -472,9 +632,17 @@ def main():
     client = genai.Client(api_key=api_key)
 
     # ------------------------------------------------------------------
-    # 3. 프롬프트 빌드
+    # 3. Phase A — 캐릭터 시트 선행 생성 (일관성 레퍼런스)
     # ------------------------------------------------------------------
-    tasks, skipped = build_prompts(story, slides, ep_dir, force=args.force)
+    char_sheets = {}
+    if not args.no_char_ref:
+        char_sheets = generate_character_sheets(client, story, ep_dir, force=args.force)
+
+    # ------------------------------------------------------------------
+    # 3b. Phase B — 슬라이드 프롬프트 빌드 (레퍼런스 연결)
+    # ------------------------------------------------------------------
+    tasks, skipped = build_prompts(story, slides, ep_dir, force=args.force,
+                                   char_sheets=char_sheets)
 
     if not tasks:
         print("생성할 이미지가 없습니다. (모두 건너뜀)")

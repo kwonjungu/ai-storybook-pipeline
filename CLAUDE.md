@@ -9,10 +9,15 @@ Gemini(스토리+이미지) + Supertone(TTS) + FFmpeg(영상) 사용.
   - API 키 불필요 — 현재 Claude Code 세션 인증 그대로 사용
   - Gemini/API 키 방식 사용 금지 (01_generate_story.py 한정)
   - 평가/재생성(`01a_evaluate_story.py`)도 Claude (Haiku 평가, Sonnet 재생성)
-- TTS: 한국어 → **슈퍼톤(Supertone)** API / 인도네시아어 → **Google Gemini TTS** (`gemini-2.5-flash-preview-tts`)
+- TTS: 한국어 → **Typecast** API (`ssfm-v30`) / 인도네시아어 등 기타 언어 → **Google Gemini TTS**
+  - **Supertone API는 2026-08-31 서비스 종료로 사용 금지** (Typecast로 이전 완료)
+  - 한국어 보이스는 Typecast `/v1/voices/recommendations`로 캐릭터 맥락(성격·종족·역할) 기반 자동 캐스팅
+  - 한국어 폴백: `python 03_generate_tts.py --engine gemini`
   - OpenAI TTS 사용 금지
-  - 언어는 story.json의 `meta.language`로 자동 감지 (`ko` / `id`)
-- 이미지 생성은 반드시 **Gemini 2.5 Flash Image** 사용 (`gemini-2.5-flash-image`)
+  - 언어는 story.json의 `meta.language`로 자동 감지 (`ko` / `id` / 기타)
+- 이미지 생성은 반드시 **Gemini 2.5 Flash Image** 사용 (`gemini-2.5-flash-image`, `GEMINI_IMAGE_MODEL`로 오버라이드 가능)
+  - **캐릭터 일관성**: 캐릭터 시트(`characters/`)를 먼저 생성한 뒤, 슬라이드 이미지에 레퍼런스로 첨부 + STRICT 가드 (multicultural-board 패턴)
+  - 비활성화: `--no-char-ref`
   - **기본: Batch API** (50% 할인, $0.039 → $0.0195/장, 비동기 처리)
   - `--realtime` 플래그로 즉시 생성 가능 (비용 2배)
   - OpenAI gpt-image-1 사용 금지 (품질 이유로 폐기)
@@ -63,7 +68,7 @@ python 01b_analyze_shorts_plan.py --ep N --with-images
 # 2a. ★ 이미지 품질 LLM 점검 (할루시네이션·비교육성·텍스트노출·캐릭터·화질)
 python 02a_check_images.py --ep N --auto-regen       # 불합격 시 자동 재생성
 
-# 3. TTS 생성 (슈퍼톤/Gemini TTS 언어별 자동)
+# 3. TTS 생성 (Typecast/Gemini TTS 언어별 자동)
 python 03_generate_tts.py --ep N
 
 # 3a. ★ 나레이션 스크립트 LLM 점검 (화자혼입·언어·연령·흐름·특수문자)
@@ -143,7 +148,7 @@ rm -rf output/epNN
 ```
 
 ## API 키
-- .env 파일에 GEMINI_API_KEY, OPENAI_API_KEY, SUPERTONE_API_KEY 설정
+- .env 파일에 GEMINI_API_KEY, TYPECAST_API_KEY, ELEVENLABS_API_KEY 설정 (OPENAI_API_KEY는 보조)
 - .env 파일은 절대 공유 금지
 
 ## 에피소드 목록 (2학년 1학기 국어)
@@ -232,11 +237,11 @@ python 03_generate_tts.py --dir "output/인도네시아어_자유주제_빛새�
 - 번역 스크립트: `translate_multilang.py --src "output/원본폴더명" --lang en` 또는 `--all`
 - 이미지: 원본 bsl 폴더에서 자동 복사 (재생성 불필요)
 - TTS: Gemini 2.5 Flash TTS (`03_generate_tts_gemini.py`) — 100 req/일 무료 한도
-- TTS 폴백 1: ElevenLabs eleven_multilingual_v2 (`03_generate_tts_elevenlabs.py`) — 자연스러운 다국어 음성
-- TTS 폴백 2: OpenAI tts-1-hd (`03_generate_tts_openai.py`) — 쿼터 초과 시 사용
+- TTS 폴백 1: ElevenLabs **eleven_v3** (`03_generate_tts_elevenlabs.py`) — 70+ 언어, 표현력 최상 (`ELEVEN_TTS_MODEL`로 v2 전환 가능)
+- OpenAI TTS(`03_generate_tts_openai.py`)는 폐기 — 사용 금지
 - story.json: `meta.language` 필드 필수 (ko/en/pt/id/es/ja)
-- story.json TTS 세그먼트: `"voice"` 필드 사용 (Gemini/OpenAI 스크립트 기준)
-  - 주의: `03_generate_tts.py`(슈퍼톤/한국어)는 `"speaker"` 필드 사용
+- story.json TTS 세그먼트: `"voice"` 필드 사용 (Gemini/ElevenLabs 스크립트 기준)
+  - 주의: `03_generate_tts.py`(Typecast/한국어)는 `"speaker"` 필드 사용
 
 ## 책 PPTX 생성 (전 언어 지원)
 

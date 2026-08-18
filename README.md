@@ -21,7 +21,7 @@ story.json → 이미지(PNG) → TTS(WAV) → 자막(SRT) → 영상(MP4)
 | Shorts 분석 | `01b_analyze_shorts_plan.py` | Claude API | 소량 |
 | **이미지 생성** | `02_generate_images.py` | **Gemini 2.5 Flash (Batch)** | **$0.0195/장** |
 | 이미지 점검 | `02a_check_images.py` | Gemini Vision | 소량 |
-| TTS (한국어) | `03_generate_tts.py` | Supertone API | 소량 |
+| TTS (한국어) | `03_generate_tts.py` | Typecast API (ssfm-v30) | 소량 |
 | TTS (다국어) | `03_generate_tts_gemini.py` | Gemini TTS | 무료 |
 | 오디오 합치기 | `04_concat_audio.py` | FFmpeg | 무료 |
 | 자막 생성 | `05_generate_srt.py` | timing.json 기반 | 무료 |
@@ -73,8 +73,8 @@ cp env.example .env
 |----|------|--------|
 | `GEMINI_API_KEY` | 이미지 생성 + TTS | [Google AI Studio](https://aistudio.google.com) |
 | `OPENAI_API_KEY` | STT 등 보조 용도 | [OpenAI Platform](https://platform.openai.com/api-keys) |
-| `SUPERTONE_API_KEY` | 한국어 TTS | [Supertone](https://supertone.ai) |
-| `ELEVENLABS_API_KEY` | 다국어 TTS 폴백 | [ElevenLabs](https://elevenlabs.io) |
+| `TYPECAST_API_KEY` | 한국어 TTS (ssfm-v30) | [Typecast](https://studio.typecast.ai/developers/api) |
+| `ELEVENLABS_API_KEY` | 다국어 TTS 폴백 (eleven_v3) | [ElevenLabs](https://elevenlabs.io) |
 
 > **주의**: `.env` 파일은 `.gitignore`에 포함되어 GitHub에 올라가지 않습니다.
 
@@ -138,7 +138,7 @@ python 03_generate_tts_gemini.py --dir "output/폴더_영어"
 |------|------|
 | 스토리 (Claude) | ₩0 |
 | 이미지 12장 (Gemini Batch) | ~₩350 |
-| TTS 6분 (Supertone) | ~₩200 |
+| TTS 6분 (Typecast) | 크레딧 차감 |
 | FFmpeg + 조립 | ₩0 |
 | **합계** | **~₩550** |
 

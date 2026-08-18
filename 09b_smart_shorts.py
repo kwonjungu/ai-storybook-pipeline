@@ -297,7 +297,7 @@ Respond with JSON for top 1 segment only (no other text):
 
     print("[AI] Gemini 2.5 Flash로 구간 분석 중...")
     resp = _genai_client.models.generate_content(
-        model="gemini-2.5-flash",
+        model=os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash"),
         contents=prompt,
         config=genai_types.GenerateContentConfig(
             temperature=0.3,

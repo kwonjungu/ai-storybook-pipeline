@@ -36,14 +36,15 @@ SILENCE_SLIDE_TRANSITION = 1.0
 COVER_SLIDE_DURATION = 3.0
 
 GEMINI_TTS_MODEL = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts")
-GEMINI_TTS_FALLBACK_MODEL = "gemini-2.5-pro-preview-tts"
+GEMINI_TTS_FALLBACK_MODEL = os.getenv("GEMINI_TTS_FALLBACK_MODEL", "gemini-3.1-flash-tts-preview")
 _current_model: str = GEMINI_TTS_MODEL  # 실행 중 폴백 시 교체됨
 
 # ---------------------------------------------------------------------------
 # ElevenLabs 폴백 설정
 # ---------------------------------------------------------------------------
 ELEVEN_API_KEY   = os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_API_KEY")
-ELEVEN_MODEL     = "eleven_multilingual_v2"
+ELEVEN_MODEL     = os.getenv("ELEVEN_TTS_MODEL", "eleven_v3")
+ELEVEN_IS_V3     = ELEVEN_MODEL.startswith(("eleven_v3", "eleven_ttv_v3"))
 ELEVEN_BASE_URL  = "https://api.elevenlabs.io/v1"
 LANG_SPEED       = {"ko": 1.0, "en": 1.0, "id": 0.92, "es": 1.0, "pt": 0.93, "ja": 0.95}
 
@@ -119,10 +120,13 @@ def _eleven_tts(speaker: str, text: str, output_path: Path, speed: float = 1.0) 
     vi  = ELEVEN_VOICE_MAP.get(speaker, ELEVEN_VOICE_MAP["narrator"])
     url = f"{ELEVEN_BASE_URL}/text-to-speech/{vi['voice_id']}"
     headers = {"xi-api-key": ELEVEN_API_KEY, "Content-Type": "application/json", "Accept": "audio/mpeg"}
-    vs = {"stability": vi["stability"], "similarity_boost": vi["similarity_boost"]}
-    if speed != 1.0:
-        vs["speed"] = speed
-    payload = {"text": text, "model_id": ELEVEN_MODEL, "voice_settings": vs}
+    payload = {"text": text, "model_id": ELEVEN_MODEL}
+    if not ELEVEN_IS_V3:
+        # v3 계열은 세밀 stability/speed 미지원 → v2 계열에서만 적용
+        vs = {"stability": vi["stability"], "similarity_boost": vi["similarity_boost"]}
+        if speed != 1.0:
+            vs["speed"] = speed
+        payload["voice_settings"] = vs
     for attempt in range(3):
         try:
             r = requests.post(url, headers=headers, json=payload, timeout=30)

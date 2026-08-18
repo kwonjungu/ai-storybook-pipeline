@@ -30,6 +30,16 @@ MAX_LINE_LENGTH = 18
 MAX_LINES = 2
 MAX_CHARS_PER_SUBTITLE = 30  # 한 자막당 최대 글자수 (초과 시 분할) — 쇼츠 스타일
 
+# 언어별 청자 기준 자막 길이 설정
+# CJK(ko/ja)는 전각 문자라 18자/줄이 적정, 라틴 문자는 폭이 절반이라 2배 허용
+# (스토리 언어는 story.json meta.language에서 자동 감지)
+SUBTITLE_LANG_CFG = {
+    "ko": {"max_line": 18, "max_chars": 30},
+    "ja": {"max_line": 16, "max_chars": 28},
+    # 라틴 문자권 (en/es/pt/id 등)
+    "_latin": {"max_line": 36, "max_chars": 60},
+}
+
 
 def format_srt_time(seconds: float) -> str:
     """초를 SRT 타임스탬프 형식(HH:MM:SS,mmm)으로 변환"""
@@ -126,6 +136,23 @@ print(f"SRT 자막 생성 -- {ep_tag}")
 print(f"{'=' * 50}")
 
 # ============================================================
+# 언어 감지 → 자막 길이 기준 적용
+# ============================================================
+story_lang = "ko"
+_story_path = ep_dir / "story.json"
+if _story_path.exists():
+    try:
+        with open(_story_path, "r", encoding="utf-8") as f:
+            story_lang = json.load(f).get("meta", {}).get("language", "ko")
+    except Exception:
+        pass
+
+_sub_cfg = SUBTITLE_LANG_CFG.get(story_lang, SUBTITLE_LANG_CFG["_latin"])
+MAX_LINE_LENGTH = _sub_cfg["max_line"]
+MAX_CHARS_PER_SUBTITLE = _sub_cfg["max_chars"]
+print(f"[INFO] 언어: {story_lang} → 자막 기준 {MAX_LINE_LENGTH}자/줄, {MAX_CHARS_PER_SUBTITLE}자/자막")
+
+# ============================================================
 # timing.json 읽기
 # ============================================================
 if not timing_path.exists():
@@ -150,9 +177,11 @@ print(f"[INFO] 전체 길이: {total_duration:.1f}초")
 # ============================================================
 # 긴 텍스트 분할 함수
 # ============================================================
-def split_long_text(text: str, max_chars: int = MAX_CHARS_PER_SUBTITLE) -> list[str]:
+def split_long_text(text: str, max_chars: int = None) -> list[str]:
     """긴 텍스트를 자연스러운 위치에서 분할합니다.
     1순위: 문장 끝(.!?~), 2순위: 쉼표, 3순위: 공백/조사 뒤"""
+    if max_chars is None:
+        max_chars = MAX_CHARS_PER_SUBTITLE  # 언어별 설정 반영 (호출 시점 값)
     text = text.strip()
     if len(text) <= max_chars:
         return [text]

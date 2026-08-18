@@ -55,6 +55,16 @@ GEMINI_VOICE_DEFAULTS = {
     "default":    {"voice_name": "Aoede",  "speed": 1.0},
 }
 
+# 언어별 청자(아동) 기준 속도 보정 계수 — 화자별 speed에 곱해서 적용
+#   es·pt: 평균 음절 발화 속도 최상위권(스페인어 ~7.8음절/초) → 가장 크게 감속
+#   en: 강세박자 언어, 비원어민 아동 청취 고려 소폭 감속
+#   id: 음절박자 언어, 학습자 청취 고려
+#   ja: 모라 박자로 음절 밀도 높음
+#   ko: Typecast 화자별 speed(내레이터 0.9 등)에서 이미 보정 → 1.0
+LISTENER_LANG_SPEED = {
+    "ko": 1.0, "en": 0.95, "id": 0.92, "es": 0.88, "pt": 0.90, "ja": 0.93,
+}
+
 # Gemini 파이프라인용 언어별 퀴즈 안내 멘트
 GEMINI_QUIZ_LINES = {
     "ko": [
@@ -776,7 +786,9 @@ def run_gemini_tts_pipeline(ep_dir: Path, story: dict, lang: str = "id"):
 
     # 보이스 맵: story.json의 gemini_voices 우선, 없으면 기본값
     voice_cfg = story.get("meta", {}).get("gemini_voices", GEMINI_VOICE_DEFAULTS)
-    print(f"[{lang} TTS] Gemini TTS 엔진 ({GEMINI_TTS_MODEL})")
+    # 언어별 청자 기준 속도 보정 (미등록 언어는 보수적으로 0.95)
+    lang_factor = LISTENER_LANG_SPEED.get(lang, 0.95)
+    print(f"[{lang} TTS] Gemini TTS 엔진 ({GEMINI_TTS_MODEL}) | 언어 속도 보정 x{lang_factor}")
     print(f"  보이스 설정:")
     for spk, cfg in voice_cfg.items():
         if spk != "default":
@@ -814,7 +826,7 @@ def run_gemini_tts_pipeline(ep_dir: Path, story: dict, lang: str = "id"):
             # 보이스 선택
             vc = voice_cfg.get(speaker, voice_cfg.get("default", {"voice_name": "Aoede", "speed": 1.0}))
             voice_name = vc["voice_name"]
-            speed      = float(vc.get("speed", 1.0))
+            speed      = float(vc.get("speed", 1.0)) * lang_factor
 
             result = generate_tts_gemini(voice_name, text, emotion, seg_path, speed)
             if result == "ok":
@@ -842,7 +854,7 @@ def run_gemini_tts_pipeline(ep_dir: Path, story: dict, lang: str = "id"):
     # ── 퀴즈 TTS (언어별 안내 멘트) ──────────────────────────
     narrator_vc = voice_cfg.get("narrator", voice_cfg.get("default", {"voice_name": "Kore", "speed": 0.95}))
     quiz_voice  = narrator_vc["voice_name"]
-    quiz_speed  = float(narrator_vc.get("speed", 0.95))
+    quiz_speed  = float(narrator_vc.get("speed", 0.95)) * lang_factor
 
     print(f"[퀴즈 TTS] {lang} 안내 멘트 생성 중...")
     quiz_lines = GEMINI_QUIZ_LINES.get(lang, GEMINI_QUIZ_LINES["en"])

@@ -48,7 +48,13 @@ QUIZ_TTS = {
     "pt": {"quiz_intro":"Hora do quiz!","quiz_q1":"Pergunta um!","quiz_q2":"Pergunta dois!","quiz_q3":"Pergunta tres!","quiz_a1":"Correto!","quiz_a2":"Correto!","quiz_a3":"Correto!"},
 }
 
-LANG_SPEED = {"ko": 1.0, "en": 1.0, "id": 0.92, "es": 1.0, "pt": 0.93, "ja": 0.95}
+# 언어별 청자(아동) 기준 속도 보정 — 평균 음절 발화 속도가 빠른 언어일수록 감속
+#   es·pt: 음절 속도 최상위권(스페인어 ~7.8음절/초) → 가장 크게 감속
+#   en: 강세박자 언어, 비원어민 아동 청취 고려 소폭 감속
+#   id: 음절박자 언어, 학습자 청취 고려
+#   ja: 모라 박자로 음절 밀도 높음
+#   ko: 화자별 speed(내레이터 0.9 등)에서 이미 보정 → 1.0
+LANG_SPEED = {"ko": 1.0, "en": 0.95, "id": 0.92, "es": 0.88, "pt": 0.90, "ja": 0.93}
 
 def eleven_tts(voice_id, text, stability=0.5, similarity=0.75, speed=1.0, retries=3):
     url = f"{ELEVEN_BASE_URL}/text-to-speech/{voice_id}"
@@ -69,6 +75,22 @@ def eleven_tts(voice_id, text, stability=0.5, similarity=0.75, speed=1.0, retrie
             if i < retries-1: time.sleep(2**i)
             else: print(f"    [ERR] {e}"); return None
     return None
+
+def apply_speed_ffmpeg(path, speed):
+    """WAV에 ffmpeg atempo로 재생 속도 적용 (v3 계열은 API가 speed 미지원 → 후처리)."""
+    if abs(speed - 1.0) < 0.02:
+        return
+    import subprocess
+    speed = max(0.5, min(2.0, speed))
+    tmp = path.with_suffix(".spd.wav")
+    r = subprocess.run(["ffmpeg", "-y", "-i", str(path), "-af", f"atempo={speed}",
+                        "-ar", "44100", "-ac", "1", str(tmp)], capture_output=True)
+    if r.returncode == 0 and tmp.exists():
+        tmp.replace(path)
+    else:
+        try: tmp.unlink()
+        except OSError: pass
+
 
 def mp3_to_wav(mp3_bytes):
     try:
@@ -183,6 +205,8 @@ def main():
             mp3 = eleven_tts(vi["voice_id"], text, vi.get("stability", 0.5), vi.get("similarity_boost", 0.75), spd)
             if mp3:
                 save_wav(mp3_to_wav(mp3), path)
+                if ELEVEN_IS_V3:
+                    apply_speed_ffmpeg(path, spd)
                 print(f"    seg{i:02d}[{sp}] voice={vi['name']} 완료")
             else:
                 print(f"    seg{i:02d}[{sp}] 실패")
@@ -204,6 +228,8 @@ def main():
         mp3 = eleven_tts(nvi["voice_id"], qt.get(key, key), nvi.get("stability", 0.5), nvi.get("similarity_boost", 0.75), speed)
         if mp3:
             save_wav(mp3_to_wav(mp3), wp)
+            if ELEVEN_IS_V3:
+                apply_speed_ffmpeg(wp, speed)
             print(f"    {key}.wav 완료")
         else:
             print(f"    {key}.wav 실패")

@@ -50,6 +50,30 @@ CHAR_REF_GUARD = (
     "clothing/accessories. Do NOT invent a different-looking character. "
 )
 
+# 구도별 캐릭터 절대 크기 (프레임 높이 대비 %) — 슬라이드 간 크기 널뛰기 방지
+# 절댓값을 명시해 앞뒤 장면의 캐릭터 스케일 점프를 억제한다.
+SIZE_BY_COMPOSITION = {
+    "wide_establishing": "the main characters' full bodies stand at about 30% of the frame height, clearly visible within the landscape",
+    "birds_eye":         "the characters occupy about 30% of the frame height",
+    "low_angle":         "the characters' full bodies at about 35% of the frame height",
+    "silhouette":        "the characters' full bodies at about 35% of the frame height",
+    "group_scene":       "each character stands at about 40% of the frame height",
+    "full_body_action":  "the characters' full bodies at about 45% of the frame height",
+    "detail_shot":       "the object of interest fills about 45% of the frame height, any visible characters at about 35%",
+    "over_shoulder":     "the focus character at about 45% of the frame height",
+    "medium_two_shot":   "the characters from the waist up fill about 55% of the frame height",
+    "medium_shot":       "the characters from the waist up fill about 55% of the frame height",
+    "close_up_face":     "the faces fill about 60% of the frame height, heads never cropped",
+}
+DEFAULT_SIZE_GUARD = "the main characters at about 40% of the frame height"
+
+def size_guard_for(composition: str) -> str:
+    rule = SIZE_BY_COMPOSITION.get(composition, DEFAULT_SIZE_GUARD)
+    return (f" CHARACTER SCALE (STRICT): {rule}. Keep the characters' apparent "
+            "size consistent with neighboring pages of the same book — "
+            "no extreme size jumps between scenes, no extreme close-ups, "
+            "characters never larger than 70% or smaller than 25% of frame height.")
+
 
 # ======================================================================
 # Phase A: 캐릭터 시트 선행 생성 (일관성 레퍼런스)
@@ -232,6 +256,9 @@ def build_prompts(story, slides, ep_dir, force=False, char_sheets=None):
                 "chalkboards and blackboards should be blank or have only abstract marks, "
                 "no posters with legible text, no signs with words"
             )
+        # 캐릭터 절대 크기 가드 (구도별) — 슬라이드 간 스케일 일관성
+        if "CHARACTER SCALE" not in image_prompt and slide.get("type") != "cover":
+            image_prompt += size_guard_for(slide.get("composition", ""))
 
         # 캐릭터 레퍼런스 (Phase A에서 생성한 시트) + STRICT 가드 (반드시 최상단)
         ref_paths = _refs_for_slide(image_prompt, all_chars, char_sheets)
@@ -469,6 +496,7 @@ def run_batch(client, tasks, ep_dir):
     poll_interval = 15  # 초
     start_time = time.time()
 
+    poll_errors = 0
     while True:
         state_name = batch_job.state.name if hasattr(batch_job.state, "name") else str(batch_job.state)
         if state_name in completed_states:
@@ -478,7 +506,16 @@ def run_batch(client, tasks, ep_dir):
         mins, secs = divmod(elapsed, 60)
         print(f"\r[배치] 대기 중... {mins}분 {secs}초 (상태: {state_name})", end="", flush=True)
         time.sleep(poll_interval)
-        batch_job = client.batches.get(name=batch_job.name)
+        try:
+            batch_job = client.batches.get(name=batch_job.name)
+            poll_errors = 0
+        except Exception as e:
+            # 일시적 네트워크 오류(SSL EOF 등)는 재시도 — 실시간 폴백으로 넘기면
+            # 서버의 배치 작업과 이중 과금이 발생함
+            poll_errors += 1
+            print(f"\n[배치] 폴링 오류 ({poll_errors}/10): {e} — {poll_interval}초 후 재시도")
+            if poll_errors >= 10:
+                raise
 
     elapsed = int(time.time() - start_time)
     mins, secs = divmod(elapsed, 60)
@@ -579,6 +616,8 @@ def main():
     parser.add_argument("--batch", action="store_true", default=True, help="배치 모드 (기본값, 50%% 할인)")
     parser.add_argument("--no-char-ref", action="store_true",
                         help="캐릭터 시트 선행 생성/레퍼런스 첨부 비활성화 (구 방식)")
+    parser.add_argument("--force-chars", action="store_true",
+                        help="캐릭터 시트도 강제 재생성 (주의: 캐릭터 디자인이 바뀜)")
     args = parser.parse_args()
 
     # --realtime이 지정되면 batch 비활성화
@@ -634,9 +673,11 @@ def main():
     # ------------------------------------------------------------------
     # 3. Phase A — 캐릭터 시트 선행 생성 (일관성 레퍼런스)
     # ------------------------------------------------------------------
+    # 시트는 --force에도 보존 (캐릭터 정체성 앵커) — --force-chars 지정 시에만 재생성
     char_sheets = {}
     if not args.no_char_ref:
-        char_sheets = generate_character_sheets(client, story, ep_dir, force=args.force)
+        char_sheets = generate_character_sheets(client, story, ep_dir,
+                                                force=args.force_chars)
 
     # ------------------------------------------------------------------
     # 3b. Phase B — 슬라이드 프롬프트 빌드 (레퍼런스 연결)

@@ -100,12 +100,12 @@ def upload_to_drive(pptx_path: Path, story: dict, creds) -> str:
         mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         resumable=True,
     )
-    uploaded = drive.files().create(
+    req = drive.files().create(
         body=file_metadata,
         media_body=media,
         fields="id,name",
-    ).execute()
-
+    )
+    uploaded = resumable_upload(req, "Drive PPT")
     file_id = uploaded["id"]
 
     # 링크 있는 모든 사용자에게 보기 권한 부여
@@ -120,12 +120,43 @@ def upload_to_drive(pptx_path: Path, story: dict, creds) -> str:
 
 
 # ─────────────────────────────────────────────────
+#  재개형 업로드 (네트워크 순단 내성)
+# ─────────────────────────────────────────────────
+
+def resumable_upload(request, label: str = "업로드"):
+    """resumable next_chunk 루프 — 일시적 네트워크 오류는 지수 백오프로 재시도.
+    (읽기 타임아웃/SSL 순단 한 번에 87MB 업로드 전체가 죽는 문제 방지)"""
+    import time as _t
+    response = None
+    errors = 0
+    while response is None:
+        try:
+            status, response = request.next_chunk()
+            if status:
+                print(f"  {label} {int(status.progress() * 100)}%...", end="\r", flush=True)
+            errors = 0
+        except Exception as e:
+            errors += 1
+            if errors > 8:
+                raise
+            wait = min(2 ** errors, 60)
+            print(f"\n  [재시도 {errors}/8] {label} 청크 실패: {str(e)[:80]} — {wait}초 대기")
+            _t.sleep(wait)
+    return response
+
+
+# ─────────────────────────────────────────────────
 #  YouTube 설명 빌드
 # ─────────────────────────────────────────────────
 
 def build_description(story: dict, pptx_url: str = None) -> str:
     meta = story.get("meta", {})
     grade = meta.get("grade", 2)
+    semester = meta.get("semester", "")
+    series = meta.get("series", "")
+    subject_full = " ".join(str(x) for x in
+                            [f"{grade}학년", f"{semester}학기" if semester else "",
+                             meta.get("subject", ""), series] if x).strip()
     subject = meta.get("subject", "")
     unit_title = meta.get("unit_title", "")
     sub_unit = meta.get("sub_unit", "")
@@ -157,7 +188,7 @@ def build_description(story: dict, pptx_url: str = None) -> str:
 {summary}...
 
 ━━━━━━━━━━━━━━━━━━
-📚 교과: {subject}  |  {unit_title}
+📚 교과: {subject_full}  |  {unit_title}
 📖 차시: {sub_unit}
 🎯 대상: 초등학교 {grade}학년
 👥 주인공: {', '.join(char_names)}
@@ -222,7 +253,8 @@ def upload_video(
 
     youtube = build("youtube", "v3", credentials=creds)
 
-    status_body = {"privacyStatus": privacy}
+    # 아동 대상 콘텐츠 필수 선언 (COPPA)
+    status_body = {"privacyStatus": privacy, "selfDeclaredMadeForKids": True}
     if schedule_time:
         status_body["privacyStatus"] = "private"
         status_body["publishAt"] = schedule_time
@@ -244,14 +276,7 @@ def upload_video(
 
     media = MediaFileUpload(str(video_path), chunksize=4 * 1024 * 1024, resumable=True)
     request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
-
-    response = None
-    while response is None:
-        status, response = request.next_chunk()
-        if status:
-            pct = int(status.progress() * 100)
-            print(f"  업로드 {pct}%...", end="\r", flush=True)
-
+    response = resumable_upload(request, "본편 업로드")
     video_id = response["id"]
     print(f"\n  [OK] 업로드 완료 → https://youtu.be/{video_id}")
 
@@ -331,17 +356,12 @@ def upload_shorts(out_dir: Path, story: dict, main_video_id: str, pptx_url: str,
                 "categoryId":      "27",
                 "defaultLanguage": "ko",
             },
-            "status": {"privacyStatus": "public"},
+            "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": True},
         },
         media_body=media,
     )
 
-    response = None
-    while response is None:
-        status, response = request.next_chunk()
-        if status:
-            print(f"  {int(status.progress()*100)}%...", end="\r", flush=True)
-
+    response = resumable_upload(request, "Shorts 업로드")
     video_id = response["id"]
     print(f"\n  [OK] Shorts 완료 → https://youtu.be/{video_id}")
 
@@ -363,8 +383,9 @@ def upload_shorts(out_dir: Path, story: dict, main_video_id: str, pptx_url: str,
 def main():
     parser = argparse.ArgumentParser(description="Drive PPT 업로드 + YouTube 영상/Shorts 업로드")
     parser.add_argument("--dir", dest="dir_path", required=True)
-    parser.add_argument("--channel", default="ko", choices=["ko", "id"],
-                        help="업로드 채널: ko=한국어, id=인도네시아 (기본: ko)")
+    parser.add_argument("--channel", default="ko", choices=["ko", "id", "en", "pt", "es"],
+                        help="업로드 채널: ko=한국어, id=인도네시아, en=영어, pt=포르투갈, es=스페인 (기본: ko). "
+                             "새 채널은 첫 실행 시 브라우저 인증 → token_<채널>.json 자동 저장")
     parser.add_argument("--private", action="store_true")
     parser.add_argument("--schedule", default=None,
                         help="예약 발행 (ISO 8601, 예: 2026-04-10T09:00:00+09:00)")

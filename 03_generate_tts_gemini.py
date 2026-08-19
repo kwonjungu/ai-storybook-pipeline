@@ -239,7 +239,8 @@ def generate_tts_gemini(client, voice: str, text: str, output_path: Path, style:
     """
     from google.genai import types
 
-    styled_text = f"({style}) {text}" if style else text
+    # 스타일 지시는 '지시문: 대사' 콜론 구문 (괄호로 붙이면 지시문을 읽어버림)
+    styled_text = f"Say in a {style} voice: {text}" if style else text
 
     def _do_request():
         _rate_limit()

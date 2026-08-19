@@ -202,7 +202,7 @@ ACTIVITY_POOL = {
     },
     # ── ART (항상 고정) ────────────────────────────────────────
     "drawing": {
-        "title": "기억에 남는 장면을 그려요!",
+        "title": "상상해서 그리고 소개해요!",
         "icon": "🎨",
         "category": "ART",
         "grade_min": 1, "grade_max": 2,
@@ -282,7 +282,8 @@ def b64_img_tag(path: Path, alt: str = "", style: str = "") -> str:
 _SPECIES_EMOJI: dict[str, str] = {
     "고슴도치": "🦔", "토끼": "🐰", "강아지": "🐶", "개": "🐶", "puppy": "🐶",
     "고양이": "🐱", "곰": "🐻", "여우": "🦊", "다람쥐": "🐿️", "햄스터": "🐹",
-    "올빼미": "🦉", "부엉이": "🦉", "새": "🐦", "참새": "🐦", "두루미": "🕊️",
+    "올빼미": "🦉", "부엉이": "🦉", "새": "🐦", "참새": "🐦", "까치": "🐦", "두루미": "🕊️",
+    "거북": "🐢", "병아리": "🐥", "뱀": "🐍", "turtle": "🐢", "snake": "🐍", "magpie": "🐦",
     "펭귄": "🐧", "물고기": "🐟", "개구리": "🐸", "사자": "🦁", "호랑이": "🐯",
     "코끼리": "🐘", "원숭이": "🐒", "오리": "🦆", "닭": "🐔", "나비": "🦋",
     "달팽이": "🐌", "수달": "🦦", "너구리": "🦝", "판다": "🐼", "쥐": "🐭",
@@ -352,6 +353,36 @@ def find_best_face_slide(story: dict, char_key: str,
     return best_slide
 
 
+def sheet_face_b64(out_dir: Path, char_key: str, size: int = 120) -> str | None:
+    """02가 생성한 캐릭터 시트(characters/*.png)에서 얼굴 원형 크롭.
+    전신 정면 시트이므로 상단 중앙이 얼굴 — 슬라이드 고정좌표 크롭보다 항상 정확."""
+    if not _PIL_OK or out_dir is None:
+        return None
+    for name in (f"{char_key}.png", f"supporting_{char_key}.png"):
+        p = out_dir / "characters" / name
+        if not p.exists():
+            continue
+        try:
+            img = Image.open(p).convert("RGBA")
+            w, h = img.size
+            side = int(w * 0.62)
+            x0 = (w - side) // 2
+            y0 = int(h * 0.03)
+            crop = img.crop((x0, y0, x0 + side, y0 + side))
+            mask = Image.new("L", (side, side), 0)
+            ImageDraw.Draw(mask).ellipse((0, 0, side - 1, side - 1), fill=255)
+            crop = crop.resize((size, size), Image.LANCZOS)
+            mask = mask.resize((size, size), Image.LANCZOS)
+            result = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+            result.paste(crop, (0, 0), mask)
+            buf = io.BytesIO()
+            result.save(buf, format="PNG")
+            return base64.b64encode(buf.getvalue()).decode()
+        except Exception as e:
+            print(f"[WARN] 캐릭터 시트 크롭 실패({name}): {e}", file=sys.stderr)
+    return None
+
+
 def crop_face_b64(img_path: Path, size: int = 120) -> str | None:
     if not _PIL_OK or not img_path.exists():
         return None
@@ -387,10 +418,13 @@ def get_char_face_html(story: dict, char_key: str, char_name: str,
     """얼굴 img HTML과 사용한 slide_number를 함께 반환.
     이미지 없으면 species 이모지 → 이름 첫 글자 순으로 폴백.
     """
-    slide_num = find_best_face_slide(story, char_key, exclude_slides=exclude_slides)
-    face_b64 = None
-    if slide_num is not None:
-        face_b64 = crop_face_b64(out_dir / "images" / f"slide_{slide_num:02d}.png", size * 2)
+    # 1순위: 캐릭터 시트 (정확한 단독 정면 얼굴) / 2순위: 슬라이드 크롭 (구방식 폴백)
+    slide_num = None
+    face_b64 = sheet_face_b64(out_dir, char_key, size * 2)
+    if not face_b64:
+        slide_num = find_best_face_slide(story, char_key, exclude_slides=exclude_slides)
+        if slide_num is not None:
+            face_b64 = crop_face_b64(out_dir / "images" / f"slide_{slide_num:02d}.png", size * 2)
     if face_b64:
         border = primary if char_key == "main_1" else accent
         html = (
@@ -468,13 +502,14 @@ def get_matching_pairs(story: dict) -> list[dict]:
 
     sup = chars.get("supporting", {})
     if isinstance(sup, dict):
+        # 조연 전원 반영 (매칭 활동은 최대 4쌍까지)
         for v in sup.values():
             if isinstance(v, dict) and v.get("name"):
                 trait = best_trait(v)
                 if not trait:
                     trait = "조연"
                 pairs.append({"name": v["name"], "trait": trait})
-                break
+    pairs = pairs[:4]
 
     # 쌍이 2개 미만이면 나레이터 문장에서 이벤트 키워드 추가
     if len(pairs) < 2:
@@ -692,9 +727,16 @@ def get_nickname_data(story: dict) -> list[dict]:
 
 
 def get_draw_prompt(story: dict) -> str:
+    """이야기 끝부분의 '열린 질문'(상상 유도 발문)이 있으면 그리기 발문으로 사용.
+    상상 단원의 핵심 활동(상상해서 표현하기)과 활동지를 직결시키는 장치."""
+    slides = [s for s in story.get("slides", []) if s.get("type") == "story"]
+    for s in reversed(slides[-3:]):
+        for seg in reversed(s.get("tts_segments", [])):
+            t = seg.get("text", "").strip()
+            if t.endswith("?") and any(k in t for k in ["상상", "무엇이", "어떤", "같아", "какое", "누가"]):
+                return t
     n1, n2 = _main_names(story)
-    return (f"{n1}이(가) {n2}와(과) 함께한 장면 중 "
-            f"가장 기억에 남는 부분을 그리고, 느낀 점을 써보세요!")
+    return f"{n1}와(과) {n2}의 이야기에서 가장 기억에 남는 장면은 무엇인가요?"
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -1072,45 +1114,38 @@ def render_nickname(story: dict, accent: str, **_) -> tuple[str, list]:
 
 def render_drawing(story: dict, out_dir: Path | None = None,
                    rng: random.Random | None = None, **_) -> tuple[str, list]:
+    """저학년용 상상 표현 활동:
+    주인공 말풍선 발문 → 큰 상상 프레임에 그리기 → 이름 짓기 → 한 줄 소개 → 칭찬 도장.
+    (이야기의 열린 질문을 발문으로 연결해 수업 흐름과 직결)"""
     prompt = get_draw_prompt(story)
-    # 장면 참고 이미지 (있으면 따라 그리기 레이아웃, 없으면 자유 그리기)
-    ref_html = ""
-    if out_dir and rng:
-        scene_b64, _ = crop_scene_b64(out_dir, story, rng)
-        if scene_b64:
-            ref_html = (
-                f'<div class="draw-ref-row">'
-                f'<div class="draw-ref-panel">'
-                f'<div class="draw-ref-label">참고 장면</div>'
-                f'<img src="data:image/png;base64,{scene_b64}" alt="참고 장면" '
-                f'style="width:100%;border-radius:8px;border:1.5px solid #e0e4f0;display:block;">'
-                f'</div>'
-                f'<div class="draw-copy-panel">'
-                f'<div class="draw-box-label">따라 그리기 / 나만의 그림</div>'
-                f'<div class="draw-box" style="flex:1 1 auto;"><span class="draw-placeholder">여기에 그림을 그려보세요</span></div>'
-                f'</div>'
-                f'</div>'
-            )
-    if ref_html:
-        html = f"""<div class="draw-prompt">{html_mod.escape(prompt)}</div>
-<div class="draw-write-section">
-  <div class="draw-write-label">내 생각 쓰기</div>
-  <div class="draw-line"></div>
-  <div class="draw-line"></div>
+    n1, _n2 = _main_names(story)
+
+    # 주인공 얼굴 + 말풍선 발문 (읽기 부담을 줄이고 캐릭터가 직접 묻는 형식)
+    face_html = '<div class="draw-coach-emoji">🗣️</div>'
+    if out_dir is not None:
+        b64 = sheet_face_b64(out_dir, "main_1", 80)
+        if b64:
+            face_html = (f'<img src="data:image/png;base64,{b64}" alt="{html_mod.escape(n1)}" '
+                         f'style="width:40px;height:40px;flex-shrink:0;">')
+
+    html = f"""<div class="draw-coach">
+  {face_html}
+  <div class="draw-bubble"><b>{html_mod.escape(n1)}</b>: “{html_mod.escape(prompt)}”</div>
 </div>
-{ref_html}"""
-    else:
-        html = f"""<div class="draw-prompt">{html_mod.escape(prompt)}</div>
-<div class="draw-write-section">
-  <div class="draw-write-label">내 생각 쓰기</div>
-  <div class="draw-line"></div>
-  <div class="draw-line"></div>
-  <div class="draw-line"></div>
-  <div class="draw-line"></div>
-</div>
-<div class="draw-box-section">
-  <div class="draw-box-label">그림 그리기</div>
-  <div class="draw-box"><span class="draw-placeholder">여기에 그림을 그려보세요</span></div>
+<div class="imagine-row">
+  <div class="imagine-frame"><span class="draw-placeholder">여기에 상상해서 그려요! ✏️</span></div>
+  <div class="imagine-side">
+    <div class="imagine-label">🏷️ 이름을 지어 주세요</div>
+    <div class="draw-line"></div>
+    <div class="imagine-label">💬 소개 한 줄 (어디에 살까? 무엇을 잘할까?)</div>
+    <div class="draw-line"></div>
+    <div class="draw-line"></div>
+    <div class="stamp-row">
+      <div class="stamp">참<br>잘했어요</div>
+      <div class="stamp">상상력<br>최고</div>
+      <div class="stamp">발표<br>완료</div>
+    </div>
+  </div>
 </div>"""
     return html, []
 
@@ -1137,7 +1172,7 @@ def crop_scene_b64(out_dir: Path, story: dict, rng: random.Random) -> tuple[str 
     try:
         img = Image.open(img_path).convert("RGB")
         w, h = img.size
-        target_w = 220
+        target_w = 160  # 참고 이미지는 작게 — 그리기 공간 우선
         target_h = int(h * target_w / w)
         img_resized = img.resize((target_w, target_h), Image.LANCZOS)
         buf = io.BytesIO()
@@ -1318,10 +1353,10 @@ def render_char_cards_html(chars: dict, story: dict, out_dir: Path,
             char_list.append((key, ch))
     sup = chars.get("supporting", {})
     if isinstance(sup, dict):
+        # 조연 전원 카드 생성 (까치 어미·개구리 아저씨 등 누락 방지)
         for k, v in sup.items():
             if isinstance(v, dict) and v.get("name"):
                 char_list.append((k, {"name": v["name"], "personality": v.get("role", ""), "species": v.get("species", "")}))
-                break
 
     cards = []
     used_slides: set = set()
@@ -1625,11 +1660,26 @@ body {{
 .draw-line {{ border-bottom: 1.5px solid #c0c8e0; height: {draw_line_h}px; }}
 .draw-box-section {{ flex: 1; display: flex; flex-direction: column; min-height: 0; }}
 .draw-box-label {{ font-size: 10px; font-weight: 700; color: {primary}; margin-bottom: 3px; flex-shrink: 0; }}
-.draw-box {{ border: 2.5px dashed #a5b4fc; border-radius: 14px; flex: 1; min-height: 120px; width: 100%; display: flex; align-items: center; justify-content: center; color: #ddd; background: #fefcfb; }}
+.draw-box {{ border: 2.5px dashed #a5b4fc; border-radius: 14px; flex: 1; min-height: 190px; width: 100%; display: flex; align-items: center; justify-content: center; color: #ddd; background: #fefcfb; }}
 .draw-placeholder {{ font-size: 11px; color: #ccc; }}
 /* 따라 그리기 (참고 이미지 + 그리기 나란히) */
+/* 상상 표현 활동 (저학년) */
+.draw-coach {{ display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-shrink: 0; }}
+.draw-coach-emoji {{ font-size: 24px; flex-shrink: 0; }}
+.draw-bubble {{ background: {primary}14; border: 1.5px solid {primary}55; border-radius: 12px;
+  padding: 6px 10px; font-size: 11.5px; line-height: 1.45; color: #333; position: relative; }}
+.imagine-row {{ display: flex; gap: 12px; flex: 1 1 auto; min-height: 0; }}
+.imagine-frame {{ flex: 1 1 58%; min-height: 200px; border: 3px dashed {accent};
+  border-radius: 48% 48% 46% 46% / 58% 58% 40% 40%;  /* 알 모양 프레임 */
+  background: #fffdf8; display: flex; align-items: center; justify-content: center; }}
+.imagine-side {{ flex: 1 1 42%; display: flex; flex-direction: column; gap: 5px; min-width: 0; }}
+.imagine-label {{ font-size: 10.5px; font-weight: 700; color: {primary}; margin-top: 2px; }}
+.stamp-row {{ display: flex; gap: 8px; margin-top: auto; padding-top: 6px; justify-content: flex-end; }}
+.stamp {{ width: 44px; height: 44px; border: 2px dashed #d8b4fe; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: 7.5px; color: #b39ddb; line-height: 1.3; flex-shrink: 0; }}
 .draw-ref-row {{ display: flex; gap: 10px; flex: 1 1 auto; min-height: 0; }}
-.draw-ref-panel {{ flex: 0 0 42%; display: flex; flex-direction: column; gap: 4px; }}
+.draw-ref-panel {{ flex: 0 0 28%; display: flex; flex-direction: column; gap: 4px; }}
 .draw-ref-label {{ font-size: 10px; font-weight: 700; color: #5ecf93; flex-shrink: 0; }}
 .draw-copy-panel {{ flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; min-height: 0; }}
 
@@ -1805,7 +1855,8 @@ def html_to_pdf(html_path: Path, pdf_path: Path) -> bool:
            "--no-pdf-header-footer", "--print-to-pdf-no-header",
            html_path.resolve().as_uri()]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60,
+                                encoding="utf-8", errors="replace")
         return pdf_path.exists() and pdf_path.stat().st_size > 0
     except Exception as e:
         print(f"[WARN] PDF 변환 오류: {e}", file=sys.stderr)

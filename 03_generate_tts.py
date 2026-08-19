@@ -2,16 +2,15 @@
 """
 03_generate_tts.py — TTS 음성 생성 + timing.json 생성
 
-언어에 따라 자동으로 TTS 엔진을 선택합니다:
-  한국어 (ko): Typecast API (ssfm-v30)
-  인도네시아어 (id) 등 기타 언어: Google Gemini TTS
+기본 엔진: Google Gemini TTS (전 언어, 화자별 보이스+페르소나 지시)
+  한국어 대안: Typecast API (--engine typecast, TYPECAST_API_KEY 필요)
 
-참고: Supertone API는 2026-08-31 서비스 종료로 제거됨 → Typecast로 이전.
+참고: Supertone API는 2026-08-31 서비스 종료로 제거됨.
 
 사용법:
-  python 03_generate_tts.py --ep 1                 # 한국어 ep01 (Typecast)
-  python 03_generate_tts.py --dir output/id01      # 인도네시아어 (자동 감지)
-  python 03_generate_tts.py --ep 1 --engine gemini # 한국어를 Gemini TTS로 (폴백)
+  python 03_generate_tts.py --ep 1                   # 한국어 (Gemini TTS)
+  python 03_generate_tts.py --dir output/id01        # 인도네시아어 (자동 감지)
+  python 03_generate_tts.py --ep 1 --engine typecast # Typecast 사용 시
 """
 
 import argparse
@@ -47,12 +46,22 @@ GEMINI_TTS_FALLBACK_MODELS = [
 GEMINI_TTS_SAMPLE_RATE = 24000  # PCM 24kHz, 16-bit, mono
 
 # 기본 보이스 매핑 (story.json의 meta.gemini_voices로 덮어씌울 수 있음)
+# voice_name: Gemini TTS 프리빌트 보이스 / style: 화자 페르소나 (읽기 지시문에 결합)
 GEMINI_VOICE_DEFAULTS = {
-    "narrator":   {"voice_name": "Kore",   "speed": 0.95},
-    "child_girl": {"voice_name": "Puck",   "speed": 1.0},
-    "child_boy":  {"voice_name": "Fenrir", "speed": 1.0},
-    "teacher":    {"voice_name": "Charon", "speed": 0.9},
-    "default":    {"voice_name": "Aoede",  "speed": 1.0},
+    "narrator":     {"voice_name": "Kore",     "speed": 0.95,
+                     "style": "따뜻하고 다정한 동화 구연가의 말투"},
+    "child_girl":   {"voice_name": "Puck",     "speed": 1.0,
+                     "style": "명랑하고 귀여운 어린 여자아이 말투"},
+    "child_boy":    {"voice_name": "Fenrir",   "speed": 1.0,
+                     "style": "밝고 씩씩한 어린 남자아이 말투"},
+    "teacher":      {"voice_name": "Charon",   "speed": 0.9,
+                     "style": "포근하고 신뢰감 있는 선생님 말투"},
+    "adult_female": {"voice_name": "Gacrux",   "speed": 0.93,
+                     "style": "다정하고 어른스러운 엄마 목소리 말투"},
+    "adult_male":   {"voice_name": "Alnilam",  "speed": 0.95,
+                     "style": "듬직하고 유쾌한 아저씨 말투"},
+    "default":      {"voice_name": "Aoede",    "speed": 1.0,
+                     "style": "생기 있는 동화 캐릭터 말투"},
 }
 
 # 언어별 청자(아동) 기준 속도 보정 계수 — 화자별 speed에 곱해서 적용
@@ -267,9 +276,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description="TTS 음성 생성 + timing.json (한국어: Typecast / 기타: Gemini)")
     parser.add_argument("--ep", type=int, default=None, help="에피소드 번호 (예: 1 → output/ep01)")
     parser.add_argument("--dir", type=str, default=None, help="출력 디렉터리 직접 지정 (예: output/bsl01)")
-    parser.add_argument("--engine", type=str, default="typecast",
-                        choices=["typecast", "gemini"],
-                        help="한국어 TTS 엔진 (기본 typecast, 폴백 gemini)")
+    parser.add_argument("--engine", type=str, default=os.getenv("TTS_ENGINE_KO", "gemini"),
+                        choices=["gemini", "typecast"],
+                        help="한국어 TTS 엔진 (기본 gemini — 품질 확인됨. typecast는 선택)")
     parser.add_argument("--force-voice", action="store_true",
                         help="story.json meta 보이스 캐시 무시하고 새로 선택")
     parser.add_argument("--revoice", action="store_true",
@@ -709,8 +718,12 @@ def generate_tts_gemini(voice_name: str, text: str, emotion: str,
 
     client = genai.Client(api_key=GEMINI_API_KEY)
 
-    # 감정 지시어를 프롬프트 앞에 주입
-    prompt = f"[{emotion}] {text}" if emotion else text
+    # 감정 지시어는 '지시문: 대사' 콜론 구문으로 전달 (공식 권장 형식).
+    # 대괄호/괄호로 앞에 붙이면 지시문을 그대로 읽어버리는 문제가 있음.
+    if emotion:
+        prompt = f"다음 문장을 {emotion}으로 읽어줘: {text}"
+    else:
+        prompt = text
 
     models = _gemini_models()
     for attempt in range(1, max_retries + 1):
@@ -823,12 +836,14 @@ def run_gemini_tts_pipeline(ep_dir: Path, story: dict, lang: str = "id"):
                 print(f"  seg {seg_idx:02d} [{speaker}] — 텍스트 비어있음, 건너뜀")
                 continue
 
-            # 보이스 선택
+            # 보이스 선택 (화자 페르소나 + 세그먼트 감정을 결합해 지시)
             vc = voice_cfg.get(speaker, voice_cfg.get("default", {"voice_name": "Aoede", "speed": 1.0}))
             voice_name = vc["voice_name"]
             speed      = float(vc.get("speed", 1.0)) * lang_factor
+            persona    = vc.get("style", "")
+            full_style = ", ".join(x for x in (persona, emotion) if x)
 
-            result = generate_tts_gemini(voice_name, text, emotion, seg_path, speed)
+            result = generate_tts_gemini(voice_name, text, full_style, seg_path, speed)
             if result == "ok":
                 dur = get_wav_duration(seg_path) if seg_path.exists() else 0.0
                 print(f"  seg {seg_idx:02d} [{speaker}] voice={voice_name} — 완료 ({dur:.2f}s)")

@@ -21,7 +21,7 @@ story.json → 이미지(PNG) → TTS(WAV) → 자막(SRT) → 영상(MP4)
 | Shorts 분석 | `01b_analyze_shorts_plan.py` | Claude API | 소량 |
 | **이미지 생성** | `02_generate_images.py` | **Gemini 2.5 Flash (Batch)** | **$0.0195/장** |
 | 이미지 점검 | `02a_check_images.py` | Gemini Vision | 소량 |
-| TTS (한국어) | `03_generate_tts.py` | Typecast API (ssfm-v30) | 소량 |
+| TTS (한국어) | `03_generate_tts.py` | Gemini TTS (기본) / Typecast 선택 | ~$0.13/편 |
 | TTS (다국어) | `03_generate_tts_gemini.py` | Gemini TTS | 무료 |
 | 오디오 합치기 | `04_concat_audio.py` | FFmpeg | 무료 |
 | 자막 생성 | `05_generate_srt.py` | timing.json 기반 | 무료 |

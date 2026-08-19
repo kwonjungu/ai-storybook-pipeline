@@ -311,7 +311,7 @@ def improve_story(story: dict, eval_result: dict, ep_dir: Path) -> dict | None:
 
     print(f"\n  [개선] Claude Sonnet에 스토리 재생성 요청 중...")
     try:
-        raw = _call_claude_cli(prompt, model=IMPROVE_MODEL, timeout=600)
+        raw = _call_claude_cli(prompt, model=IMPROVE_MODEL, timeout=1500)
 
         # JSON 배열 파싱 (LLM이 story 슬라이드 배열만 반환)
         s = raw.find("["); e = raw.rfind("]") + 1

@@ -46,6 +46,45 @@ GEMINI_TTS_VOICES = {
 # ── BSL 에피소드 목록 (바슬즐 / 통합교과 시리즈) ──────────
 # 키: 출력 폴더 이름 (예: "bsl03" → output/bsl03)
 BSL_EPISODES = {
+    "bsl07": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
+        "unit": "", "unit_title": "알에서 동물이 태어난다면 (20-21p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "호기심 많은 아기 병아리 '삐요'와 느긋한 꼬마 거북 '토토'가 "
+            "반짝이는 '신비한 알 지도'를 주워 알 탐험을 떠난다. "
+            "지도를 따라 세 장소를 차례로 방문한다: "
+            "① 높은 나무 위 둥지 — 작고 얼룩덜룩한 알(메추라기·오리 같은 새 알), "
+            "② 연못가 물풀 속 — 투명 젤리 같은 알 뭉치(개구리·도롱뇽 알), "
+            "③ 따뜻한 모래사장 — 동그란 알(거북 알). "
+            "장소마다 두 친구는 '이곳은 어디일까? 알 모습은 어떨까? 여기서 태어나는 동물은 어떤 특징이 있을까?'를 "
+            "묻고 상상한 뒤, 알이 깨어나며 진짜 동물을 만나 특징(날개, 물속 헤엄, 단단한 등껍질)을 자연스럽게 배운다. "
+            "'알이 발견된 장소와 태어나는 동물은 서로 관련이 있다'는 것을 대화로 깨닫게 해주세요. "
+            "마지막에 무지개빛으로 반짝이는 '신비한 알' 하나를 발견하는데, 무엇이 태어날지 아무도 모른다. "
+            "두 친구가 각자 상상의 동물(예: 구름 날개 무지개 용)을 신나게 상상하다가, "
+            "알이 살짝 흔들리며 '너는 무엇이 태어날 것 같아?'라고 시청자에게 묻는 열린 결말로 끝난다. "
+            "1학년 눈높이의 짧고 리듬감 있는 문장으로, 상상하는 즐거움이 가득하게 구성하세요."
+        ),
+        "world_setting": "egg_expedition_nature",
+        "world_desc": (
+            "맑은 봄날의 자연 탐험길 — 초록 잎이 무성한 큰 나무와 폭신한 둥지, "
+            "물풀과 수련잎이 떠 있는 반짝이는 연못, 조개껍데기가 흩어진 따뜻한 황금빛 모래사장, "
+            "그리고 언덕 위 풀숲에 놓인 무지개빛으로 반짝이는 신비한 알"
+        ),
+        "character_type": (
+            "cute animal children explorers: a small fluffy yellow chick with a tiny backpack (curious, energetic) "
+            "and a little green turtle with a patterned shell (calm, thoughtful), "
+            "meeting egg-born animals — mother quail bird, cheerful frog, baby sea turtles. "
+            "CRITICAL: all characters must have ANIMAL faces and bodies — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "clean fresh spring colors with clear blue sky, rounded adorable animal character designs, "
+            "gentle sunlight, storybook composition with clear focal points, "
+            "NEUTRAL to COOL color temperature with no yellow-amber cast, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
     "bsl06": {
         "grade": 2, "semester": 1, "subject": "통합교과", "series": "마을",
         "unit": "", "unit_title": "우리 마을 이곳저곳 (22-23p)", "sub_unit": "함께 골라요",

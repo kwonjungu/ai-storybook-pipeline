@@ -9,10 +9,12 @@ Gemini(스토리+이미지) + Supertone(TTS) + FFmpeg(영상) 사용.
   - API 키 불필요 — 현재 Claude Code 세션 인증 그대로 사용
   - Gemini/API 키 방식 사용 금지 (01_generate_story.py 한정)
   - 평가/재생성(`01a_evaluate_story.py`)도 Claude (Haiku 평가, Sonnet 재생성)
-- TTS: 한국어 → **Typecast** API (`ssfm-v30`) / 인도네시아어 등 기타 언어 → **Google Gemini TTS**
-  - **Supertone API는 2026-08-31 서비스 종료로 사용 금지** (Typecast로 이전 완료)
-  - 한국어 보이스는 Typecast `/v1/voices/recommendations`로 캐릭터 맥락(성격·종족·역할) 기반 자동 캐스팅
-  - 한국어 폴백: `python 03_generate_tts.py --engine gemini`
+- TTS: 전 언어 → **Google Gemini TTS 메인** (`gemini-2.5-flash-preview-tts`, 품질 확인됨)
+  - 한국어 기본 엔진 = gemini (`TTS_ENGINE_KO`로 변경 가능, `--engine typecast` 선택지 유지)
+  - 화자별 보이스+페르소나: narrator=Kore/구연가, child_boy=Fenrir, child_girl=Puck,
+    teacher=Charon, adult_female=Gacrux(엄마 역), adult_male=Alnilam — `GEMINI_VOICE_DEFAULTS`
+  - 감정 지시는 반드시 **콜론 구문** ("다음 문장을 {지시}으로 읽어줘: {대사}") — 괄호 포맷은 지시문을 읽어버림
+  - **Supertone API는 2026-08-31 서비스 종료로 사용 금지**
   - OpenAI TTS 사용 금지
   - 언어는 story.json의 `meta.language`로 자동 감지 (`ko` / `id` / 기타)
 - 이미지 생성은 반드시 **Gemini 2.5 Flash Image** 사용 (`gemini-2.5-flash-image`, `GEMINI_IMAGE_MODEL`로 오버라이드 가능)

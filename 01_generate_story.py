@@ -46,6 +46,244 @@ GEMINI_TTS_VOICES = {
 # ── BSL 에피소드 목록 (바슬즐 / 통합교과 시리즈) ──────────
 # 키: 출력 폴더 이름 (예: "bsl03" → output/bsl03)
 BSL_EPISODES = {
+    "bsl13": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
+        "unit": "", "unit_title": "여기저기에서 본다면 (30-31p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "삐요와 토토 시리즈 — 호기심 많은 아기 병아리 '삐요'와 느긋한 꼬마 거북 '토토'가 다시 주인공. "
+            "어느 날 두 친구가 언덕 너머로 보이는 '알록달록 둥근 것'을 발견한다. "
+            "삐요는 언덕 위에서 보고 '거대한 사탕이야!', 토토는 풀숲 아래에서 보고 '알록달록 산이야!'라고 "
+            "서로 다르게 주장하며 티격태격한다. "
+            "정체를 알아내려 두 친구는 '여기저기에서' 보기로 한다: "
+            "① 가까이 다가가 보기 — 커다란 천의 줄무늬만 보임, "
+            "② 멀리 떨어져 보기 — 전체 모양이 둥실 떠 있는 것을 발견, "
+            "③ 위에서 내려다보기 — 친절한 기러기 아주머니 등에 타고 하늘에서 보니 둥근 지붕에 바구니가 달림, "
+            "④ 아래에서 올려다보기 — 바구니 아래에서 보니 불꽃이 후욱! "
+            "정체는 바로 알록달록 열기구! 보는 위치마다 전혀 다르게 보였다는 것을 깨닫는다. "
+            "'같은 것도 어디에서 보느냐에 따라 다르게 보여. 그래서 친구의 눈으로도 봐야 해!'라는 메시지. "
+            "각 장면에서 '위에서 보면', '아래에서 보면', '가까이서 보면', '멀리서 보면' 같은 위치 표현을 "
+            "자연스럽게 대사에 녹여 주세요. 배경에 따라 물건이 달라 보이는 재미도 한 장면 넣어 주세요 "
+            "(예: 구름 배경에선 솜사탕 같고, 바다 배경에선 커다란 공 같아 보임). "
+            "마지막에 두 친구가 열기구를 타고 마을을 내려다보며 '너희 집은 위에서 보면 어떤 모습일까? "
+            "상상해 봐!'라고 시청자에게 묻는 열린 결말. "
+            "1학년 눈높이의 짧고 리듬감 있는 문장, 의성어·의태어를 풍부하게 사용하세요."
+        ),
+        "world_setting": "perspective_balloon_adventure",
+        "world_desc": (
+            "맑은 가을 하늘의 언덕 마을 — 초록 언덕과 들꽃, 언덕 너머 알록달록 줄무늬 열기구, "
+            "뭉게구름 떠 있는 파란 하늘, 위에서 내려다본 조그만 마을 지붕들과 꼬불꼬불 길"
+        ),
+        "character_type": (
+            "the SAME two main characters as previous episodes, identical designs: "
+            "main_1 Ppiyo — a small fluffy round yellow chick with soft downy feathers, tiny orange "
+            "beak and orange feet, big sparkling black eyes, wearing a little red mini backpack, "
+            "short flappy wings, bright curious energetic expression; "
+            "main_2 Toto — a small green baby turtle with a rounded shell patterned with soft teal "
+            "and moss green hexagons, gentle calm eyes, wearing a small sky blue neckerchief, "
+            "friendly relaxed smile, sturdy tiny legs. "
+            "Supporting: a kind mother wild goose who gives them a ride, a cheerful balloon pilot animal. "
+            "CRITICAL: all characters must have ANIMAL faces and bodies — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "crisp autumn sky scenery with dynamic perspective compositions (bird's eye, worm's eye, "
+            "close-up, far view), rounded adorable animal character designs, gentle sunlight, "
+            "storybook composition with clear focal points, "
+            "NEUTRAL to COOL color temperature with no yellow-amber cast, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl12": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
+        "unit": "", "unit_title": "장난감이 춤을 춘다면 (28-29p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "새로운 주인공의 특별편 (삐요·토토 시리즈와 다른 독립 이야기). "
+            "주인공은 아이 방의 장난감 둘 — 씩씩하지만 춤이 서툰 꼬마 태엽 로봇 '띠깍'과 "
+            "부드럽고 상냥한 솜인형 토끼 '푸미'. "
+            "아이가 깊이 잠든 밤, 달빛이 창으로 스며들면 오르골이 스르르 열리며 장난감들이 깨어난다. "
+            "오늘 밤은 일 년에 한 번 열리는 '장난감 무도회' 날! "
+            "두 가지 음악이 차례로 흐른다: "
+            "① 씩씩한 행진곡 — 쿵쿵! 짝짝! 블록 병정들이 지그재그로 행진하고 곧은 선, 뾰족한 선이 "
+            "바닥에 반짝반짝 그려진다. "
+            "② 사탕 요정의 춤 — 사뿐사뿐, 빙글빙글, 발레리나 인형이 돌 때마다 구불구불 부드러운 곡선이 "
+            "반짝이며 그려진다. "
+            "움직임마다 서로 다른 '선'이 마법처럼 바닥에 그려지는 것이 이 이야기의 핵심 장치 "
+            "(빠른 음악=곧고 뾰족한 선, 느리고 예쁜 음악=부드러운 곡선 — 음악을 선으로 표현하기). "
+            "띠깍은 태엽 몸이 뻣뻣해 춤이 서툴러 부끄러워하지만, 푸미가 '네 몸이 내는 소리도 음악이야!'라고 "
+            "용기를 준다. 띠깍은 자기만의 '띠깍띠깍 로봇 춤'을 추고, 지그재그 번쩍이는 멋진 선이 그려져 "
+            "모두의 박수를 받는다 — '나만의 움직임도 멋진 표현'이라는 메시지. "
+            "새벽이 오면 장난감들은 살금살금 제자리로 돌아가고, 아침에 아이는 바닥에 남은 희미한 "
+            "반짝이 선을 발견하며 고개를 갸웃한다. "
+            "마지막에 '너의 장난감도 밤에 춤을 출까? 어떤 춤을 출 것 같아?'라고 시청자에게 묻는 열린 결말. "
+            "1학년 눈높이의 짧고 리듬감 있는 문장, 의성어·의태어(쿵쿵, 사뿐사뿐, 빙글빙글, 띠깍띠깍)를 "
+            "풍부하게 사용하세요."
+        ),
+        "world_setting": "toy_room_night_ball",
+        "world_desc": (
+            "달빛이 스며드는 밤의 아이 방 — 별 모양 야광 스티커가 붙은 벽, 알록달록 장난감 상자, "
+            "황금빛으로 빛나는 오르골, 블록 성과 그림책 탑, 폭신한 러그 무도회장, "
+            "움직임을 따라 바닥에 반짝이며 그려지는 마법의 선들"
+        ),
+        "character_type": (
+            "NEW main characters for this special episode (NOT the chick and turtle): "
+            "main_1 Ttikkak — a small boxy wind-up tin robot toy with a round silver head, big warm "
+            "glowing amber eyes, a large golden wind-up key on his back, sky blue and cream body with "
+            "tiny rivets, stiff but endearing movements; "
+            "main_2 Pumi — a soft plush bunny doll with cream fluffy fabric, long floppy ears with "
+            "pink inner lining, a stitched smile, button eyes, wearing a tiny mint tutu skirt. "
+            "Supporting: block soldier toys marching, a graceful ballerina doll, a golden music box. "
+            "All are TOYS with toy-like materials (tin, plush, wood) — cute, rounded, friendly."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "magical moonlit night nursery with warm glowing highlights and sparkling magical line trails, "
+            "rounded adorable toy character designs, dreamy but clean colors, "
+            "storybook composition with clear focal points, "
+            "NEUTRAL to COOL color temperature overall with selective warm glow accents, "
+            "inspired by modern Korean picture books for 7-year-olds and the Nutcracker ballet"
+        ),
+    },
+    "bsl10": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
+        "unit": "", "unit_title": "함께 간다면 (24-25p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "삐요와 토토 시리즈 3편. 호기심 많은 아기 병아리 '삐요'와 느긋한 꼬마 거북 '토토'가 "
+            "수박 축제가 열리는 '초록 마을'로 처음 함께 여행을 떠나는 지역 여행 이야기. "
+            "전래동요 '어디만큼 강가'의 반복 문답을 여행의 리듬으로 사용한다: "
+            "길을 갈 때마다 삐요가 '어디만큼 갔니?' 하고 물으면 토토가 '당당 멀었다!'(아직 멀었다) 하고 답하고, "
+            "장소에 도착할 때마다 '○○에 왔다!' 하고 외친다. (동요 자체는 도입에서 흥얼거리는 동기 유발 수준으로만.) "
+            "여행 경로는 우리 지역의 정겨운 풍경 네 곳: "
+            "① 반짝이는 강가 — 징검다리를 하나씩 함께 건너기, "
+            "② 넓은 논밭 — 소가 써레로 흙을 고르는 모습 구경(농기구 이름 자연스럽게), "
+            "③ 왁자지껄 마을 장터 — 고소한 냄새, 알록달록 과일 구경, "
+            "④ 안개 낀 산고개 — 앞이 안 보여 삐요가 무서워하자, 토토의 등껍질에 손을 얹고 "
+            "토토의 목소리만 듣고 한 걸음씩 따라 걷는다(잘 듣고 따라가기, 신뢰와 경청). "
+            "마침내 초록 마을 도착 — '초록 마을에 도착했다!' 함께 외치고, 축제에서 시원한 수박을 나눠 먹는다. "
+            "'혼자 가면 멀지만 함께 가면 즐겁다'는 것을 깨닫는 따뜻한 결말. "
+            "마지막에 '다음엔 어디로 함께 가 볼까? 너라면 어디로 가고 싶어?'라고 시청자에게 묻는다. "
+            "'어디만큼 갔니?'-'당당 멀었다!' 문답을 최소 3번 반복해 리듬감을 만들고, "
+            "1학년 눈높이의 짧은 문장과 의성어·의태어를 풍부하게 사용하세요."
+        ),
+        "world_setting": "korean_countryside_journey",
+        "world_desc": (
+            "여름날 한국 시골 여행길 — 징검다리 놓인 반짝이는 강가, 초록 벼가 자라는 넓은 논밭과 "
+            "써레를 끄는 순한 소, 알록달록 천막이 늘어선 마을 장터, 뽀얀 안개가 내려앉은 산고개 숲길, "
+            "그리고 수박 깃발이 펄럭이는 축제 마을"
+        ),
+        "character_type": (
+            "the SAME two main characters as previous episodes, identical designs: "
+            "main_1 Ppiyo — a small fluffy round yellow chick with soft downy feathers, tiny orange "
+            "beak and orange feet, big sparkling black eyes, wearing a little red mini backpack, "
+            "short flappy wings, bright curious energetic expression; "
+            "main_2 Toto — a small green baby turtle with a rounded shell patterned with soft teal "
+            "and moss green hexagons, gentle calm eyes, wearing a small sky blue neckerchief, "
+            "friendly relaxed smile, sturdy tiny legs. "
+            "Supporting: a gentle big ox pulling a wooden harrow in the rice field, cheerful market animals. "
+            "CRITICAL: all characters must have ANIMAL faces and bodies — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "warm Korean countryside summer scenery with clear blue sky, rounded adorable animal character designs, "
+            "gentle sunlight, storybook composition with clear focal points, "
+            "NEUTRAL to COOL color temperature with no yellow-amber cast, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl11": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
+        "unit": "", "unit_title": "여러 가지 모양이 살아난다면 (26-27p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "삐요와 토토 시리즈 4편. 어느 날 밤, 벽에 비친 이상한 그림자를 보고 잠에서 깬 삐요와 토토. "
+            "그림자의 정체는 살아 움직이는 세 모양 친구 — 데굴데굴 구르는 '동글이'(동그라미), "
+            "반듯반듯 걷는 '네모난'(네모), 콕콕 뾰족한 '세모미'(세모)! "
+            "모양 친구들이 두 친구를 '모양 나라'로 초대한다. "
+            "모양 나라에서는 모든 것이 세 가지 모양으로 이루어져 있다: "
+            "동그라미 해와 바퀴, 네모 집과 창문, 세모 지붕과 산. "
+            "그런데 모양 나라에 폭풍이 지나가 마을이 흩어져 버렸다! "
+            "삐요와 토토는 모양 친구들과 함께 흩어진 조각들을 조합해 마을을 다시 만든다: "
+            "동그라미+세모=아이스크림, 네모+세모=집, 동그라미 두 개+네모=수레처럼 "
+            "모양을 합치면 새로운 것이 태어나는 즐거움을 보여 준다. "
+            "각 장면에서 '주변에서 동그라미(네모/세모)를 찾아볼까?' 하는 관찰 표현을 자연스럽게 녹여 주세요. "
+            "마지막에 완성된 '나만의 모양 나라'를 보며 모양 친구들과 작별하고, "
+            "'너라면 동그라미, 네모, 세모로 무엇을 만들고 싶어?'라고 시청자에게 묻는 열린 결말. "
+            "1학년 눈높이의 짧은 문장, 의성어·의태어(데굴데굴, 반듯반듯, 콕콕)를 풍부하게 사용하세요."
+        ),
+        "world_setting": "living_shapes_land",
+        "world_desc": (
+            "상상의 모양 나라 — 동그라미 해와 뭉게구름, 네모난 알록달록 집들과 창문, 세모 지붕과 "
+            "세모 산맥, 파스텔톤 색종이 같은 풍경, 밤 장면에서는 벽에 비친 신비한 모양 그림자"
+        ),
+        "character_type": (
+            "the SAME two main characters as previous episodes, identical designs: "
+            "main_1 Ppiyo — a small fluffy round yellow chick with soft downy feathers, tiny orange "
+            "beak and orange feet, big sparkling black eyes, wearing a little red mini backpack, "
+            "short flappy wings, bright curious energetic expression; "
+            "main_2 Toto — a small green baby turtle with a rounded shell patterned with soft teal "
+            "and moss green hexagons, gentle calm eyes, wearing a small sky blue neckerchief, "
+            "friendly relaxed smile, sturdy tiny legs. "
+            "Supporting shape characters: Donggeuli — a cheerful bouncy red CIRCLE with a smiling face and stubby arms; "
+            "Nemonan — a calm sturdy blue SQUARE with a friendly face; "
+            "Semomi — a lively pointy yellow TRIANGLE with a mischievous smile. "
+            "Shape characters are simple flat geometric shapes with cute faces and small limbs. "
+            "CRITICAL: animal characters must have ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache "
+            "with playful paper-craft flat shape elements, clean pastel colors, rounded adorable "
+            "character designs, gentle lighting, storybook composition with clear focal points, "
+            "NEUTRAL to COOL color temperature with no yellow-amber cast, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl09": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
+        "unit": "", "unit_title": "상자에 물건이 들어 있다면 (22-23p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "전편 '삐요와 토토의 신비한 알 탐험'의 주인공, 호기심 많은 아기 병아리 '삐요'와 "
+            "느긋한 꼬마 거북 '토토'가 다시 등장하는 시리즈 2편. "
+            "어느 아침, 두 친구의 집 앞에 리본이 묶인 '신비한 상자'가 놓여 있다. "
+            "바로 열어보려는 삐요를 토토가 말리며 '열기 전에 무엇인지 맞혀 보자!'고 제안한다. "
+            "두 친구는 오감을 하나씩 사용해 상자 속 물건을 탐구한다: "
+            "① 눈 — 상자의 작은 구멍으로 살짝 들여다보기(초록빛이 보여!), "
+            "② 귀 — 흔들어 소리 듣기(통통! 묵직한 소리), "
+            "③ 코 — 냄새 맡기(달콤하고 시원한 향기), "
+            "④ 손 — 구멍에 손을 넣어 만져보기(매끈매끈 동글동글), "
+            "⑤ 입 — 마지막에 열어서 맛보기. "
+            "감각마다 얻은 단서를 서로 알려 주며 '함께 단서를 모으면 답에 가까워진다'는 협동을 배우고, "
+            "단서를 종합해 상상한 답(수박!)을 외친 뒤 상자를 열어 확인한다 — 정답! 시원한 수박을 나눠 먹는다. "
+            "각 감각 장면에서 '눈으로 관찰해요', '귀로 들어요' 같은 오감 표현을 자연스럽게 대사에 녹여주세요. "
+            "마지막에 리본이 묶인 두 번째 상자가 하나 더 발견되고, 흔들면 사각사각 소리가 난다. "
+            "'이 상자에는 무엇이 들어 있을까? 너도 오감으로 상상해 봐!'라고 시청자에게 묻는 열린 결말로 끝난다. "
+            "1학년 눈높이의 짧고 리듬감 있는 문장, 의성어·의태어를 풍부하게 사용하세요."
+        ),
+        "world_setting": "sensory_box_adventure",
+        "world_desc": (
+            "맑은 여름 아침의 아늑한 언덕집 마당 — 나무 문 앞 돌계단, 알록달록 리본이 묶인 "
+            "커다란 나무 상자, 꽃이 핀 울타리, 풀잎에 맺힌 이슬, 파란 하늘과 뭉게구름"
+        ),
+        "character_type": (
+            "the SAME two main characters as the previous episode, identical designs: "
+            "main_1 Ppiyo — a small fluffy round yellow chick with soft downy feathers, tiny orange "
+            "beak and orange feet, big sparkling black eyes, wearing a little red mini backpack, "
+            "short flappy wings, bright curious energetic expression; "
+            "main_2 Toto — a small green baby turtle with a rounded shell patterned with soft teal "
+            "and moss green hexagons, gentle calm eyes, wearing a small sky blue neckerchief, "
+            "friendly relaxed smile, sturdy tiny legs. "
+            "CRITICAL: all characters must have ANIMAL faces and bodies — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "clean fresh summer morning colors with clear blue sky, rounded adorable animal character designs, "
+            "gentle sunlight, storybook composition with clear focal points, "
+            "NEUTRAL to COOL color temperature with no yellow-amber cast, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
     "bsl07": {
         "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
         "unit": "", "unit_title": "알에서 동물이 태어난다면 (20-21p)", "sub_unit": "함께 골라요",

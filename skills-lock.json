@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "typecast-api-expert": {
+      "source": "neosapience/typecast-skills",
+      "sourceType": "github",
+      "skillPath": "skills/typecast-api-expert/SKILL.md",
+      "computedHash": "59c87310f06c789ad67411d7de819ca529d49f7d3912f187feafc281cc566eed"
+    }
+  }
+}

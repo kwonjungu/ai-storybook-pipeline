@@ -149,7 +149,29 @@ def resumable_upload(request, label: str = "업로드"):
 #  YouTube 설명 빌드
 # ─────────────────────────────────────────────────
 
-def build_description(story: dict, pptx_url: str = None) -> str:
+def upload_worksheet_to_drive(pdf_path: Path, story: dict, creds) -> str:
+    """활동지 PDF를 Drive에 업로드하고 공유 링크 반환."""
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+
+    meta = story.get("meta", {})
+    grade = meta.get("grade", 2)
+    file_name = f"[{grade}학년] {meta.get('story_title', '동화')} - 활동지.pdf"
+
+    drive = build("drive", "v3", credentials=creds)
+    print(f"[Drive] 활동지 업로드 중: {pdf_path.name} ({pdf_path.stat().st_size // 1024} KB)")
+    media = MediaFileUpload(str(pdf_path), mimetype="application/pdf", resumable=True)
+    req = drive.files().create(body={"name": file_name}, media_body=media, fields="id")
+    uploaded = resumable_upload(req, "Drive 활동지")
+    file_id = uploaded["id"]
+    drive.permissions().create(fileId=file_id,
+                               body={"type": "anyone", "role": "reader"}).execute()
+    url = f"https://drive.google.com/file/d/{file_id}/view"
+    print(f"  [OK] 활동지 업로드 완료 → {url}")
+    return url
+
+
+def build_description(story: dict, pptx_url: str = None, worksheet_url: str = None) -> str:
     meta = story.get("meta", {})
     grade = meta.get("grade", 2)
     semester = meta.get("semester", "")
@@ -182,6 +204,13 @@ def build_description(story: dict, pptx_url: str = None) -> str:
   👉 {pptx_url}
   (수업·가정학습용으로 자유롭게 사용하세요!)
 """
+    worksheet_section = ""
+    if worksheet_url:
+        worksheet_section = f"""
+✏️ 독후 활동지(워크시트) 무료 다운로드
+  👉 {worksheet_url}
+  (인쇄해서 바로 수업에 활용하세요!)
+"""
 
     return f"""🌟 {story_title}
 
@@ -194,8 +223,7 @@ def build_description(story: dict, pptx_url: str = None) -> str:
 👥 주인공: {', '.join(char_names)}
 ━━━━━━━━━━━━━━━━━━
 {goal_lines}
-{pptx_section}
-✏️ 무료 활동지(워크시트)는 블로그 포스트에서 받으세요!
+{pptx_section}{worksheet_section}
 📌 댓글로 문의해 주시면 빠르게 답변드립니다 😊
 
 ━━━━━━━━━━━━━━━━━━
@@ -224,6 +252,7 @@ def upload_video(
     out_dir: Path,
     story: dict,
     pptx_url: str = None,
+    worksheet_url: str = None,
     privacy: str = "public",
     schedule_time: str = None,
     creds=None,
@@ -262,7 +291,7 @@ def upload_video(
     body = {
         "snippet": {
             "title":           title[:100],
-            "description":     build_description(story, pptx_url),
+            "description":     build_description(story, pptx_url, worksheet_url),
             "tags":            build_tags(story)[:15],
             "categoryId":      "27",   # Education
             "defaultLanguage": "ko",
@@ -423,20 +452,27 @@ def main():
     # 인증 (채널별)
     creds = get_credentials(args.channel)
 
-    # ① Drive PPT 업로드
+    # ① Drive 업로드 (그림책 PPT + 활동지 PDF)
     pptx_url = None
+    worksheet_url = None
     if not args.no_drive:
         pptx_path = out_dir / "book_1분할.pptx"
         if pptx_path.exists():
             pptx_url = upload_to_drive(pptx_path, story, creds)
         else:
             print(f"[SKIP] PPT 없음: {pptx_path.name}")
+        ws_path = out_dir / "worksheet.pdf"
+        if ws_path.exists():
+            worksheet_url = upload_worksheet_to_drive(ws_path, story, creds)
+        else:
+            print(f"[SKIP] 활동지 PDF 없음: {ws_path.name}")
 
     # ② 본편 YouTube 업로드
     privacy = "private" if (args.private or args.schedule) else "public"
     video_id = upload_video(
         out_dir, story,
         pptx_url=pptx_url,
+        worksheet_url=worksheet_url,
         privacy=privacy,
         schedule_time=args.schedule,
         creds=creds,
@@ -457,6 +493,8 @@ def main():
     log["youtube_url"] = f"https://youtu.be/{video_id}"
     if pptx_url:
         log["pptx_drive_url"] = pptx_url
+    if worksheet_url:
+        log["worksheet_drive_url"] = worksheet_url
     if shorts_id:
         log["shorts_video_id"] = shorts_id
         log["shorts_url"] = f"https://youtu.be/{shorts_id}"

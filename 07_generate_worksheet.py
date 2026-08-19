@@ -144,7 +144,7 @@ ACTIVITY_POOL = {
         "color": "c-orange",
     },
     "syllable_order": {
-        "title": "음절을 순서대로 놓아요!",
+        "title": "글자를 바르게 놓아요!",
         "icon": "🔀",
         "category": "GAME",
         "grade_min": 1, "grade_max": 2,
@@ -546,25 +546,26 @@ def get_ox_items(story: dict, rng: random.Random) -> list[dict]:
 
     items: list[dict] = []
 
-    # 참(O) 2개: 나레이터 문장 그대로
+    # 거짓(X) 1개 먼저: n1↔n2 이름 교체 — 원본 문장은 O 후보에서 제외 (정답 유출 방지)
+    fake_source = None
     for sent in narr_sents:
-        if len(items) >= 2:
-            break
-        items.append({"statement": sent, "answer": "O"})
-
-    # 거짓(X) 1개: n1↔n2 이름 교체한 문장
-    false_added = False
-    for sent in narr_sents:
-        if false_added:
-            break
         if n1 and n1 in sent and n2 and n2 != n1:
-            fake = sent.replace(n1, n2, 1)
-            items.append({"statement": fake, "answer": "X"})
-            false_added = True
+            items.append({"statement": sent.replace(n1, n2, 1), "answer": "X"})
+            fake_source = sent
+            break
         elif n2 and n2 in sent and n1 and n1 != n2:
-            fake = sent.replace(n2, n1, 1)
-            items.append({"statement": fake, "answer": "X"})
-            false_added = True
+            items.append({"statement": sent.replace(n2, n1, 1), "answer": "X"})
+            fake_source = sent
+            break
+
+    # 참(O) 2개: X의 원본과 다른 나레이터 문장만
+    for sent in narr_sents:
+        if sum(1 for it in items if it["answer"] == "O") >= 2:
+            break
+        if sent != fake_source:
+            items.append({"statement": sent, "answer": "O"})
+
+    rng.shuffle(items)
 
     # fallback: 문장 없으면 quiz_questions 답변 사용
     if len(items) < 3:
@@ -649,20 +650,33 @@ def get_emotion_scenes(story: dict) -> list[dict]:
     emotion_compositions = {"close_up_face", "medium_two_shot", "realization"}
     for s in slides[1:]:
         if s.get("composition") in emotion_compositions or s.get("color_mood") in ("realization", "tense_worried", "happy_ending"):
-            text = s.get("text", "")[:40]
-            if not text:
+            # 첫 나레이터 세그먼트에서 '완결된 문장' 사용 (중간 잘림 방지)
+            # 너무 짧으면 다음 문장까지 병합 — 감정 판단 근거 확보
+            sent = ""
+            for seg in s.get("tts_segments", []):
+                if seg.get("speaker") == "narrator":
+                    t = seg.get("text", "").strip()
+                    sentences = re.findall(r"[^.!?]*[.!?]", t)
+                    acc = ""
+                    for piece in sentences:
+                        acc = (acc + " " + piece.strip()).strip()
+                        if len(acc) >= 14:
+                            break
+                    if 14 <= len(acc) <= 50:
+                        sent = acc
+                    break
+            if not sent:
                 continue
-            # 3~4개 감정 선택지
-            chosen = EMOTIONS[:4]
             scenes.append({
-                "situation": f"{n1}이(가): {text}",
-                "choices": chosen,
+                "situation": sent,
+                "choices": EMOTIONS[:4],
             })
         if len(scenes) >= 3:
             break
     if not scenes:
-        scenes = [{"situation": f"{n1}이(가) 혼자 있을 때", "choices": EMOTIONS[:4]},
-                  {"situation": f"{n1}이(가) 친구를 만났을 때", "choices": EMOTIONS[1:5]}]
+        j1 = "가" if (n1 and (ord(n1[-1]) - 0xAC00) % 28 == 0) else "이"
+        scenes = [{"situation": f"{n1}{j1} 혼자 있을 때", "choices": EMOTIONS[:4]},
+                  {"situation": f"{n1}{j1} 친구를 만났을 때", "choices": EMOTIONS[1:5]}]
     return scenes[:3]
 
 
@@ -677,7 +691,9 @@ def get_speech_bubbles(story: dict) -> list[dict]:
             if spk in ("child_boy", "child_girl", "teacher"):
                 char = n1 if spk == "child_boy" else (n2 if spk == "child_girl" else "선생님")
                 text = seg.get("text", "")
-                situation = s.get("text", "")[:30]
+                # 상황문은 완결된 첫 문장만 (중간 잘림 방지)
+                m = re.match(r"[^.!?]*[.!?]", s.get("text", ""))
+                situation = m.group(0).strip() if m and len(m.group(0)) <= 40 else ""
                 if len(text) > 10:
                     bubbles.append({"character": char, "situation": situation, "hint": text[:15] + "..."})
         if len(bubbles) >= 3:
@@ -705,11 +721,21 @@ def get_story_continue_prompt(story: dict) -> dict:
 
 
 def get_if_i_were(story: dict) -> dict:
+    """상황문은 행동·정서 판단형 질문만 사용 — 지식 확인형('무엇이 되었나요?')은
+    '나라면 어떻게 했을까'와 어울리지 않으므로 제외."""
     quiz = _quiz_qs(story)
-    situation = quiz[0].get("question", "") if quiz else "주인공과 같은 상황이라면?"
-    n1, _ = _main_names(story)
+    situation = ""
+    _ACT_KEYS = ["어떻게", "왜", "무서", "용기", "기분", "마음", "이겨", "도와", "하기로"]
+    for q in reversed(quiz):
+        qt = (q.get("question", "") or "").strip()
+        if qt.endswith("?") and 10 <= len(qt) <= 70 and any(k in qt for k in _ACT_KEYS):
+            situation = qt
+            break
+    if not situation:
+        n1, _ = _main_names(story)
+        situation = f"{n1}처럼 어렵고 무서운 일이 생긴다면?"
     return {
-        "situation": f"{n1}처럼 {situation[:30]}",
+        "situation": situation,
         "prompt": "나라면 어떻게 했을까요? 내 생각을 써보세요!",
         "lines": 4,
     }
@@ -721,7 +747,10 @@ def get_nickname_data(story: dict) -> list[dict]:
     for key in ("main_1", "main_2"):
         ch = chars.get(key) or {}
         if ch.get("name"):
-            p = ch.get("personality", "").split(",")[0].strip()[:20]
+            p = ch.get("personality", "").split(",")[0].strip()
+            if len(p) > 26:
+                # 어절 경계에서 자르기 (중간 잘림 방지)
+                p = p[:26].rsplit(" ", 1)[0]
             result.append({"name": ch["name"], "trait": p})
     return result
 
@@ -729,14 +758,19 @@ def get_nickname_data(story: dict) -> list[dict]:
 def get_draw_prompt(story: dict) -> str:
     """이야기 끝부분의 '열린 질문'(상상 유도 발문)이 있으면 그리기 발문으로 사용.
     상상 단원의 핵심 활동(상상해서 표현하기)과 활동지를 직결시키는 장치."""
-    slides = [s for s in story.get("slides", []) if s.get("type") == "story"]
+    slides = [s for s in story.get("slides", []) if s.get("type") in ("story", "ending")]
+    _KEYS = ["상상", "무엇이", "어떤", "같아", "누가", "어디로", "너라면",
+             "너는", "가고 싶", "만들고 싶", "들어 있을"]
     for s in reversed(slides[-3:]):
         for seg in reversed(s.get("tts_segments", [])):
             t = seg.get("text", "").strip()
-            if t.endswith("?") and any(k in t for k in ["상상", "무엇이", "어떤", "같아", "какое", "누가"]):
-                return t
+            # 물음표로 '끝나는' 문장만 추출 (느낌표 문장에 ?를 붙이는 오류 방지)
+            questions = [q.strip() for q in re.findall(r"[^.!?]*\?", t)]
+            cand = [q for q in questions if any(k in q for k in _KEYS) and len(q) >= 8]
+            if cand:
+                return cand[-1]
     n1, n2 = _main_names(story)
-    return f"{n1}와(과) {n2}의 이야기에서 가장 기억에 남는 장면은 무엇인가요?"
+    return f"{n1} 그리고 {n2}의 이야기에서 가장 기억에 남는 장면은 무엇인가요?"
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -944,7 +978,8 @@ def render_word_chain(story: dict, rng: random.Random, **_) -> tuple[str, list]:
     # 세로 알고리즘 흐름: 시작단어 ↓ 빈칸 ↓ 빈칸 ...
     steps = ""
     for i in range(5):
-        hint = f'<span class="chain-v-hint">{html_mod.escape(last_char)}으로 시작하는 말</span>' if i == 0 else ""
+        _jo = "으로" if last_char and 0xAC00 <= ord(last_char[-1]) <= 0xD7A3 and (ord(last_char[-1]) - 0xAC00) % 28 not in (0, 8) else "로"
+        hint = f'<span class="chain-v-hint">{html_mod.escape(last_char)}{_jo} 시작하는 말</span>' if i == 0 else ""
         steps += f'<div class="chain-v-step"><div class="chain-v-arrow">↓</div><div class="chain-v-box">{hint}</div></div>'
     guide = '<div class="chain-guide">앞 낱말의 마지막 글자로 시작하는 낱말을 이어 써보세요!</div>'
     html = f'<div class="chain-v-wrap"><div class="chain-v-start">{html_mod.escape(start)}</div>{steps}</div>{guide}'
@@ -953,22 +988,25 @@ def render_word_chain(story: dict, rng: random.Random, **_) -> tuple[str, list]:
 
 def render_story_sequence(story: dict, rng: random.Random, **_) -> tuple[str, list]:
     """이야기 순서 배열: 나레이터 문장 3개를 섞어서 번호 쓰기."""
-    narr = []
+    # 시청자 안내 멘트는 사건이 아니므로 제외
+    _SKIP = ["여러분", "보세요", "볼까요", "해 봐", "해봐", "상상해 봐", "만나요", "찾아 직접"]
+    narr = []  # 이야기 시간 순서 그대로 수집
     for s in story.get("slides", []):
+        if s.get("type") == "ending":
+            continue
         for seg in s.get("tts_segments", []):
             if seg.get("speaker") != "narrator":
                 continue
             text = seg.get("text", "").strip()
-            if 12 <= len(text) <= 40 and text not in narr:
+            if 12 <= len(text) <= 40 and text not in narr \
+                    and not any(k in text for k in _SKIP):
                 narr.append(text)
-    if len(narr) < 3:
-        # fallback: quiz questions
-        for q in _quiz_qs(story):
-            t = q.get("question", "")[:38]
-            if t and t not in narr:
-                narr.append(t)
-    rng.shuffle(narr)
-    events = narr[:3]
+    if len(narr) >= 3:
+        # 초반·중반·후반에서 하나씩 — 시간 순서 보존 (events가 곧 정답 순서)
+        events = [narr[0], narr[len(narr) // 2], narr[-1]]
+    else:
+        events = narr + [q.get("question", "")[:38] for q in _quiz_qs(story) if q.get("question")]
+        events = events[:3]
     correct_order = list(range(1, len(events) + 1))
     # 섞어서 출력 (순서 정답은 숨김 — 아이가 직접 번호 기입)
     display_order = list(range(len(events)))
@@ -986,17 +1024,19 @@ def render_story_sequence(story: dict, rng: random.Random, **_) -> tuple[str, li
 
 
 def render_syllable_order(story: dict, rng: random.Random, primary: str, accent: str, **_) -> tuple[str, list]:
-    """음절 순서 맞히기: 이야기 핵심 단어의 음절을 섞어서 제시."""
+    """글자 순서 맞히기: 이야기 핵심 단어의 글자를 섞어서 제시.
+    - 같은 글자로만 된 낱말(토토 등)은 섞어도 그대로라 제외
+    - 섞은 결과가 원래 낱말과 같으면 다시 섞기 (2글자 낱말 대비)"""
     chars = _chars(story)
     words = []
     for key in ("main_1", "main_2"):
         n = (chars.get(key) or {}).get("name", "")
-        if 2 <= len(n) <= 4:
+        if 2 <= len(n) <= 4 and len(set(n)) >= 2:
             words.append(n)
     # 추가 단어 — story title에서 추출
     title = story.get("meta", {}).get("story_title", "")
     for part in re.split(r"[\s!?의와과]", title):
-        if 2 <= len(part) <= 4 and part not in words:
+        if 2 <= len(part) <= 4 and part not in words and len(set(part)) >= 2:
             words.append(part)
     # 기본 단어 보충
     for w in ["친구", "용기", "행복", "마음", "이야기"]:
@@ -1011,7 +1051,10 @@ def render_syllable_order(story: dict, rng: random.Random, primary: str, accent:
     answers = []
     for i, word in enumerate(words):
         syllables = list(word)
-        rng.shuffle(syllables)
+        for _try in range(20):
+            rng.shuffle(syllables)
+            if "".join(syllables) != word:
+                break
         chips = "".join(
             f'<span class="syl-chip">{html_mod.escape(s)}</span>' for s in syllables
         )
@@ -1023,7 +1066,7 @@ def render_syllable_order(story: dict, rng: random.Random, primary: str, accent:
 </div>"""
         answers.append({"label": str(i + 1), "ans": word})
 
-    guide = '<div class="chain-guide">음절을 순서대로 놓아 낱말을 완성하세요!</div>'
+    guide = '<div class="chain-guide">글자를 바르게 놓아 낱말을 만들어 보세요!</div>'
     return f'<div class="syl-list">{items_html}</div>{guide}', answers
 
 
@@ -1478,7 +1521,7 @@ body {{
   display: flex; align-items: center; justify-content: center;
   font-size: 20px; font-weight: 900; color: {primary};
 }}
-.char-name {{ font-size: 13px; font-weight: 900; color: #1a2e40; }}
+.char-name {{ font-size: 13px; font-weight: 900; color: #1a2e40; word-break: keep-all; }}
 .char-desc {{ font-size: 10px; color: #5a6a88; margin-top: 1px; line-height: 1.4; }}
 
 /* 2행 (위아래 쌓기) - 활동은 자연 높이, 필러가 남는 공간 채움 */
@@ -1624,9 +1667,9 @@ body {{
 }}
 .filler-act-body {{ flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }}
 /* 장면 따라 그리기 */
-.filler-content {{ display: flex; gap: 8px; flex: 1 1 auto; min-height: 0; align-items: flex-start; }}
-.filler-ref {{ flex: 0 0 auto; width: 42%; display: flex; flex-direction: column; gap: 3px; }}
-.filler-ref img {{ width: 100%; border-radius: 8px; border: 1.5px solid #e0e4f0; display: block; }}
+.filler-content {{ display: flex; gap: 8px; flex: 1 1 auto; min-height: 0; align-items: flex-start; overflow: hidden; }}
+.filler-ref {{ flex: 0 0 auto; width: 30%; display: flex; flex-direction: column; gap: 3px; }}
+.filler-ref img {{ width: 100%; max-height: 110px; object-fit: cover; border-radius: 8px; border: 1.5px solid #e0e4f0; display: block; }}
 .filler-ref-label {{ font-size: 9px; color: #aaa; text-align: center; font-style: italic; }}
 .filler-draw-area {{ flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; min-height: 0; }}
 .filler-draw-label {{ font-size: 11px; font-weight: 700; color: #5ecf93; flex-shrink: 0; }}

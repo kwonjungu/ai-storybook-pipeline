@@ -47,21 +47,22 @@ GEMINI_TTS_SAMPLE_RATE = 24000  # PCM 24kHz, 16-bit, mono
 
 # 기본 보이스 매핑 (story.json의 meta.gemini_voices로 덮어씌울 수 있음)
 # voice_name: Gemini TTS 프리빌트 보이스 / style: 화자 페르소나 (읽기 지시문에 결합)
+# ★ 시그니처 명확화: 음색 대비 최대 조합 + 음높이·발성 특징을 페르소나에 명시
 GEMINI_VOICE_DEFAULTS = {
-    "narrator":     {"voice_name": "Kore",     "speed": 0.95,
-                     "style": "따뜻하고 다정한 동화 구연가의 말투"},
-    "child_girl":   {"voice_name": "Puck",     "speed": 1.0,
-                     "style": "명랑하고 귀여운 어린 여자아이 말투"},
-    "child_boy":    {"voice_name": "Fenrir",   "speed": 1.0,
-                     "style": "밝고 씩씩한 어린 남자아이 말투"},
-    "teacher":      {"voice_name": "Charon",   "speed": 0.9,
-                     "style": "포근하고 신뢰감 있는 선생님 말투"},
+    "narrator":     {"voice_name": "Sulafat",  "speed": 0.95,
+                     "style": "따뜻하고 포근한 어른 여성 동화 구연가, 중간 음높이로 부드럽고 차분하게"},
+    "child_girl":   {"voice_name": "Leda",     "speed": 1.02,
+                     "style": "높고 가늘고 귀여운 어린 여자아이 목소리, 통통 튀며 밝게"},
+    "child_boy":    {"voice_name": "Puck",     "speed": 1.05,
+                     "style": "카랑카랑하고 씩씩한 어린 남자아이 목소리, 에너지 넘치고 빠릿하게"},
+    "teacher":      {"voice_name": "Vindemiatrix", "speed": 0.9,
+                     "style": "부드럽고 신뢰감 있는 선생님 목소리, 또박또박 친절하게"},
     "adult_female": {"voice_name": "Gacrux",   "speed": 0.93,
-                     "style": "다정하고 어른스러운 엄마 목소리 말투"},
-    "adult_male":   {"voice_name": "Alnilam",  "speed": 0.95,
-                     "style": "듬직하고 유쾌한 아저씨 말투"},
-    "default":      {"voice_name": "Aoede",    "speed": 1.0,
-                     "style": "생기 있는 동화 캐릭터 말투"},
+                     "style": "낮고 그윽한 어른 여성 엄마 목소리, 푸근하고 느긋하게"},
+    "adult_male":   {"voice_name": "Algenib",  "speed": 0.92,
+                     "style": "굵고 걸걸한 저음의 아저씨 목소리, 듬직하고 호탕하게"},
+    "default":      {"voice_name": "Achird",   "speed": 1.0,
+                     "style": "개성 있고 생기 넘치는 동화 캐릭터 목소리"},
 }
 
 # 언어별 청자(아동) 기준 속도 보정 계수 — 화자별 speed에 곱해서 적용
@@ -537,11 +538,18 @@ def save_voice_blacklist(ep_dir: Path, blacklist: set):
 def generate_tts_typecast(api_key: str, voice_id: str, text: str,
                           output_path: Path, speed: float = 1.0,
                           pitch_shift: int = 0, emotion: str = "",
+                          prev_text: str = "", next_text: str = "",
                           ep_dir: Path = None, max_retries: int = 3) -> str:
     """Typecast API로 TTS를 생성하고 WAV로 저장합니다.
+    감정: 문맥(prev/next)이 있으면 Smart Emotion(공식 권장), 고정 멘트는 프리셋.
     Returns: "ok" | "forbidden" | "error"
     """
-    headers = {"X-API-KEY": api_key}
+    headers = {
+        "X-API-KEY": api_key,
+        # Typecast 통합 어트리뷰션 (llms.txt 지침)
+        "User-Agent": "typecast-direct/1 requests typecast-integration/1 "
+                      "(source=llms; generated_by=claude-code)",
+    }
     url = f"{TYPECAST_BASE_URL}/v1/text-to-speech"
     payload = {
         "voice_id": voice_id,
@@ -552,15 +560,24 @@ def generate_tts_typecast(api_key: str, voice_id: str, text: str,
             "audio_format": "wav",
             "audio_tempo": max(0.5, min(2.0, speed)),
             "audio_pitch": max(-12, min(12, int(pitch_shift))),
+            "target_lufs": -14,  # 세그먼트 간 음량 일관성
         },
     }
-    preset = emotion_to_preset(emotion)
-    if preset:
+    if prev_text or next_text:
+        # 이야기 흐름 문맥으로 감정을 자동 추론 (동화 낭독에 최적)
         payload["prompt"] = {
-            "emotion_type": "preset",
-            "emotion_preset": preset,
-            "emotion_intensity": 1.0,
+            "emotion_type": "smart",
+            "previous_text": prev_text[:300],
+            "next_text": next_text[:300],
         }
+    else:
+        preset = emotion_to_preset(emotion)
+        if preset:
+            payload["prompt"] = {
+                "emotion_type": "preset",
+                "emotion_preset": preset,
+                "emotion_intensity": 1.2,
+            }
 
     for attempt in range(1, max_retries + 1):
         try:
@@ -720,8 +737,9 @@ def generate_tts_gemini(voice_name: str, text: str, emotion: str,
 
     # 감정 지시어는 '지시문: 대사' 콜론 구문으로 전달 (공식 권장 형식).
     # 대괄호/괄호로 앞에 붙이면 지시문을 그대로 읽어버리는 문제가 있음.
+    # 감정 명확화: 감정을 지시문 맨 앞에 두고 '뚜렷하게' 강조.
     if emotion:
-        prompt = f"다음 문장을 {emotion}으로 읽어줘: {text}"
+        prompt = f"{emotion}. 이 감정이 뚜렷하게 드러나도록 다음 문장을 읽어줘: {text}"
     else:
         prompt = text
 
@@ -1255,9 +1273,15 @@ def main():
             print(f"  [{slide_num:02d}-{seg_idx:02d}] [{speaker}] — 보이스 없음, 건너뜀")
             return (slide_num, seg_idx, seg, seg_path)
 
+        # Smart Emotion용 문맥: 같은 슬라이드의 앞/뒤 세그먼트 텍스트
+        _slide_texts = _segment_texts.get(slide_num, [])
+        prev_text = _slide_texts[seg_idx - 1] if seg_idx > 0 else ""
+        next_text = _slide_texts[seg_idx + 1] if seg_idx + 1 < len(_slide_texts) else ""
+
         result = generate_tts_typecast(api_key, voice_id, text, seg_path,
                                        speed=speed, pitch_shift=pitch_shift,
                                        emotion=seg.get("emotion", ""),
+                                       prev_text=prev_text, next_text=next_text,
                                        ep_dir=ep_dir)
         if result == "ok":
             print(f"  [{slide_num:02d}-{seg_idx:02d}] [{speaker}] voice={voice_name} — 완료")
@@ -1317,6 +1341,12 @@ def main():
             print(f"  [{slide_num:02d}-{seg_idx:02d}] [{speaker}] — 실패")
 
         return (slide_num, seg_idx, seg, seg_path)
+
+    # Smart Emotion 문맥용: 슬라이드별 세그먼트 텍스트 목록
+    _segment_texts = {
+        sl.get("slide_number", 0): [sg.get("text", "") for sg in sl.get("tts_segments", [])]
+        for sl in slides
+    }
 
     # 전체 세그먼트 목록 수집 (슬라이드 순서 보존)
     all_tasks = []  # (slide_num, seg_idx, seg, seg_path)

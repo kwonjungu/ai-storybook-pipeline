@@ -31,12 +31,13 @@ Gemini(스토리+이미지) + Supertone(TTS) + FFmpeg(영상) 사용.
 - 인물 수: 한 화면에 또렷한 인물 최대 3명
 - TTS 텍스트: `…`, `—`, `―` 등 특수문자 금지 (마침표/쉼표만 사용)
 
-## 퀴즈 섹션 규칙
-- 문제/정답 내용은 TTS로 읽지 않음 (시청자가 화면 보고 직접 읽기)
-- TTS: "~번 문제입니다!", "정답입니다!" 안내 멘트만
-- 문제 슬라이드: 최소 5초 대기 (TTS 후 무음)
-- 정답 슬라이드: 최소 5초 대기 (TTS 후 무음)
-- 카운트다운: 5초 (그대로 유지)
+## 퀴즈 섹션 규칙 (2026-08 개편)
+- 문제·정답 본문도 narrator TTS로 낭독 (1학년 문해력 배려)
+  - `activity_sheet.quiz_questions[i].question/answer` → `quiz_q{i}_body.wav` / `quiz_a{i}_body.wav`
+  - 문제 슬라이드 오디오 = 안내 멘트(`quiz_q{i}.wav`) + 본문 낭독(`quiz_q{i}_body.wav`) concat
+- 문제 후 카운트다운 5초 (880Hz 비프음). 침묵 대기 금지
+- 정답 슬라이드 최소 3초 (본문 낭독 길이 우선)
+- body wav가 없는 기존 편은 폴백(기존 안내 멘트만 + 무음 대기)으로 자동 처리
 
 ## --dir 인수 지원 스크립트
 모든 스크립트에서 `--ep N` 대신 `--dir output/폴더명` 사용 가능 (아래 폴더 목록 참조):
@@ -84,9 +85,14 @@ python 05_generate_srt.py --ep N
 
 # 6. 활동지 HTML
 python 07_generate_worksheet.py --ep N
+python 07a_check_worksheet.py --dir output/폴더   # ★ 활동지 QA (불합격 시 사람 검토)
 
 # 7. 퀴즈 슬라이드 PNG (Jua 폰트)
 python 07b_generate_quiz_slides.py --ep N
+
+# 7c. ★ 애니 배경분리판 (핵심 6컷: 도입1+전개2+절정2+결말1)
+#     TTS와 무관 → 07b·06 사이 언제든 병렬 실행 가능. anim/slide_XX.mp4 생성 시 06이 자동 삽입
+python 11_animate_scenes.py --dir output/epNN --limit 6
 
 # 8. Shorts 영상 (Mode A: 9:16 이미지 / Mode B: blur 합성)
 python 09b_smart_shorts.py --ep N
@@ -298,3 +304,12 @@ python 08a_batch_book_pptx.py --skip-done   # 이미 생성된 것 건너뜀
 - 퀴즈/썸네일: Jua (주아) 폰트 사용
 - assets/fonts/Jua-Regular.ttf (없으면 자동 다운로드)
 - 자막/영상: Malgun Gothic (시스템 폰트)
+
+## 업로드·운영 정책 (2026-08 확정)
+- 공개 주기: 주 1~2편, publish_youtube --schedule 로 예약 공개. 대량 동시 공개 금지
+- 타이밍: 해당 단원 진도 1~2주 전 공개 (2학기 하루·상상 = 9~11월)
+- Shorts: 본편 요약형 제작 중단. --shorts는 명시 요청 시에만.
+  (신규 쇼츠는 15~20초 자체 완결 '그림 수수께끼' 포맷 확정 후 재개 — 별도 기획)
+- 성공 지표: 구독자·조회수 아님. "단원 재생목록의 교실 재생"(트래픽 소스: 외부/직접 유입)
+  분기 1회 _channel_audit.py로 점검
+- 유통: 신규 단원 완성 시 인디스쿨 게시(단원 재생목록 + 통합 Drive 폴더 링크)가 공개 절차의 마지막 단계

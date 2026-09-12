@@ -242,6 +242,7 @@ def build_slide_mp4(
     Returns:
         생성된 mp4 파일 경로
     """
+    import re as _re
     out_mp4 = os.path.join(tmp_dir, f"slide_{idx:03d}.mp4")
     total_frames = max(int(round(duration * FPS)), 2)
 
@@ -249,6 +250,37 @@ def build_slide_mp4(
 
     # ── 커버 포함 모든 슬라이드: 원본 이미지 그대로 사용 ──
     actual_img = img_path
+
+    # ── 애니 클립 우선: anim/slide_XX.mp4 있으면 정지 이미지 대신 루프 사용 ──
+    anim_clip = None
+    if actual_img:
+        m = _re.search(r"slide_(\d+)", Path(actual_img).stem)
+        if m:
+            cand = Path(actual_img).parent.parent / "anim" / f"slide_{int(m.group(1)):02d}.mp4"
+            if cand.exists():
+                anim_clip = cand
+    if anim_clip:
+        vf_parts = [
+            f"scale={W}:{H}:force_original_aspect_ratio=decrease,"
+            f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1"
+        ]
+        if is_first:
+            vf_parts.append(f"fade=in:0:{FADE_FRAMES}")
+        if is_last:
+            fo = max(total_frames - FADE_FRAMES, FADE_FRAMES + 1)
+            vf_parts.append(f"fade=out:{fo}:{FADE_FRAMES}")
+        vf_parts.append("format=yuv420p")
+        cmd = [
+            "ffmpeg", "-y",
+            "-stream_loop", "-1", "-i", ffmpeg_safe(anim_clip),
+            "-t", f"{duration:.3f}",
+            "-vf", ",".join(vf_parts),
+            "-c:v", "libx264", "-crf", "23", "-preset", "ultrafast",
+            "-threads", "4", "-pix_fmt", "yuv420p", "-an",
+            "-t", f"{duration:.3f}", out_mp4,
+        ]
+        run_ffmpeg(cmd, label=f"slide_{idx:03d}(anim)")
+        return out_mp4
 
     # ── 입력 ──
     if actual_img and actual_img.exists():
@@ -521,26 +553,93 @@ def build_quiz(tmp_dir: str, ep_dir: Path) -> list:
                "-t", f"{dur:.3f}", out_path]
         run_ffmpeg(cmd, "quiz_slide_custom")
 
+    def _concat_wavs(wavs: list, out_wav: str) -> bool:
+        """여러 wav를 순서대로 이어붙여 하나의 wav로 저장. 성공 시 True."""
+        existing = [w for w in wavs if Path(w).exists()]
+        if not existing:
+            return False
+        if len(existing) == 1:
+            # 단일 파일이면 그대로 복사(포맷 정규화)
+            cmd = ["ffmpeg", "-y", "-i", ffmpeg_safe(Path(existing[0])),
+                   "-ar", "44100", "-ac", "2", out_wav]
+            run_ffmpeg(cmd, "quiz_wav_norm")
+            return Path(out_wav).exists()
+        inputs = []
+        for w in existing:
+            inputs += ["-i", ffmpeg_safe(Path(w))]
+        n = len(existing)
+        # 각 입력을 44100/stereo로 정규화 후 concat
+        parts = "".join(f"[{i}:a]aresample=44100,aformat=sample_fmts=s16:channel_layouts=stereo[a{i}];"
+                        for i in range(n))
+        concat = "".join(f"[a{i}]" for i in range(n)) + f"concat=n={n}:v=0:a=1[aout]"
+        cmd = ["ffmpeg", "-y", *inputs,
+               "-filter_complex", parts + concat,
+               "-map", "[aout]", out_wav]
+        run_ffmpeg(cmd, "quiz_wav_concat")
+        return Path(out_wav).exists()
+
     # quiz_intro (3s)
     mp4 = _make_quiz_slide("quiz_intro", 3.0)
     if mp4:
         quiz_mp4s.append(mp4)
 
-    # q1, q2, q3 — question(TTS 안내 + 5초 표시) → answer(TTS 안내 + 5초 표시)
-    # 카운트다운 제거. 문제/정답 슬라이드 각 정확히 5초 (TTS 끝나도 무음으로 대기)
+    # q1, q2, q3 — 문제(안내+본문 낭독) → 카운트다운 5초(비프) → 정답(안내+본문 낭독)
     for qi in range(1, 4):
-        # 질문 슬라이드: TTS 포함 정확히 5초
+        # ── 문제 슬라이드: quiz_q{i}.wav(안내) + quiz_q{i}_body.wav(본문) concat ──
         wav_q = audio_dir / f"quiz_q{qi}.wav"
-        q_dur = max(get_duration_ffprobe(str(wav_q)), 5.0) if wav_q.exists() else 5.0
-        mp4 = _make_quiz_slide(f"quiz_q{qi}", q_dur)
-        if mp4:
-            quiz_mp4s.append(mp4)
-        # 정답 슬라이드: TTS 포함 정확히 5초
+        wav_q_body = audio_dir / f"quiz_q{qi}_body.wav"
+        q_png = quiz_dir / f"quiz_q{qi}.png"
+        if wav_q_body.exists():
+            # 본문 낭독 파일이 있으면 안내+본문 합성 후 낭독 길이만큼 표시
+            combined_q = os.path.join(tmp_dir, f"quiz_q{qi}_combined.wav")
+            if _concat_wavs([wav_q, wav_q_body], combined_q):
+                q_dur = max(get_duration_ffprobe(combined_q), 5.0)
+                out_q = os.path.join(tmp_dir, f"quiz_quiz_q{qi}.mp4")
+                if q_png.exists():
+                    _make_quiz_slide_custom(str(q_png), out_q, combined_q, q_dur)
+                    quiz_mp4s.append(out_q)
+            else:
+                # 폴백: 기존 동작
+                q_dur = max(get_duration_ffprobe(str(wav_q)), 5.0) if wav_q.exists() else 5.0
+                mp4 = _make_quiz_slide(f"quiz_q{qi}", q_dur)
+                if mp4:
+                    quiz_mp4s.append(mp4)
+        else:
+            # 폴백: 본문 wav 없음 → 기존 동작 (안내 TTS + 무음 패딩 5초)
+            q_dur = max(get_duration_ffprobe(str(wav_q)), 5.0) if wav_q.exists() else 5.0
+            mp4 = _make_quiz_slide(f"quiz_q{qi}", q_dur)
+            if mp4:
+                quiz_mp4s.append(mp4)
+
+        # ── 카운트다운 슬라이드 (5초 + 비프) — 문제 뒤에 삽입 ──
+        countdown_mp4 = os.path.join(tmp_dir, f"quiz_countdown_{qi}.mp4")
+        _make_countdown_slide(str(q_png) if q_png.exists() else "", countdown_mp4)
+        if Path(countdown_mp4).exists():
+            quiz_mp4s.append(countdown_mp4)
+
+        # ── 정답 슬라이드: quiz_a{i}.wav(안내) + quiz_a{i}_body.wav(본문), 최소 3초 ──
         wav_a = audio_dir / f"quiz_a{qi}.wav"
-        a_dur = max(get_duration_ffprobe(str(wav_a)), 5.0) if wav_a.exists() else 5.0
-        mp4 = _make_quiz_slide(f"quiz_a{qi}", a_dur)
-        if mp4:
-            quiz_mp4s.append(mp4)
+        wav_a_body = audio_dir / f"quiz_a{qi}_body.wav"
+        a_png = quiz_dir / f"quiz_a{qi}.png"
+        if wav_a_body.exists():
+            combined_a = os.path.join(tmp_dir, f"quiz_a{qi}_combined.wav")
+            if _concat_wavs([wav_a, wav_a_body], combined_a):
+                a_dur = max(get_duration_ffprobe(combined_a), 3.0)
+                out_a = os.path.join(tmp_dir, f"quiz_quiz_a{qi}.mp4")
+                if a_png.exists():
+                    _make_quiz_slide_custom(str(a_png), out_a, combined_a, a_dur)
+                    quiz_mp4s.append(out_a)
+            else:
+                a_dur = max(get_duration_ffprobe(str(wav_a)), 3.0) if wav_a.exists() else 3.0
+                mp4 = _make_quiz_slide(f"quiz_a{qi}", a_dur)
+                if mp4:
+                    quiz_mp4s.append(mp4)
+        else:
+            # 폴백: 본문 wav 없음 → 기존 동작 (대기 5.0→3.0 단축)
+            a_dur = max(get_duration_ffprobe(str(wav_a)), 3.0) if wav_a.exists() else 3.0
+            mp4 = _make_quiz_slide(f"quiz_a{qi}", a_dur)
+            if mp4:
+                quiz_mp4s.append(mp4)
 
     print(f"[OK] 퀴즈 슬라이드 {len(quiz_mp4s)}개 생성 완료")
     return quiz_mp4s

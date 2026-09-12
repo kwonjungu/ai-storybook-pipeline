@@ -136,12 +136,52 @@ def build_species_check(characters: dict, lang: str) -> str:
         return "\n\n[Species Mismatch Check — PRIORITY FAILURE]\n" + "\n".join(species_lines) + "\nIf animal character has human-like face/nose/mouth, score [C] = 0."
 
 
-def build_check_prompt(slide: dict, lang: str, characters: dict = None) -> str:
+def build_character_gate(characters: dict, lang: str, has_sheets: bool = False) -> str:
+    """캐릭터 정합성 최우선 게이트 — 종 뒤바뀜/중복/분리 + (시트 있으면)디자인 일관성 검사."""
+    characters = characters or {}
+    lines = []
+    for key in ("main_1", "main_2"):
+        c = characters.get(key)
+        if isinstance(c, dict) and c.get("name"):
+            sp = c.get("species", "") or "동물"
+            lines.append(f"  - {c['name']}: {sp} (반드시 이 종의 모습으로, 딱 1마리만)")
+    if not lines:
+        return ""
+    sheet_note = ""
+    if has_sheets:
+        sheet_note = (
+            "\n[일관성 — 캐릭터 시트 대조]\n"
+            "맨 앞의 이미지(들)는 이 주인공들의 '기준 디자인 시트'이고, 마지막 이미지가 검사할 슬라이드입니다.\n"
+            "검사 슬라이드의 주인공이 시트 대비 '명백히 다른 색·무늬·형태'로 그려졌으면 character_ok=false 처리:\n"
+            "  5) 몸 색이 확연히 다름 (예: 노란 몸→주황/초록, 초록 등껍질→파랑)\n"
+            "  6) 고유 특징이 사라지거나 추가됨 (예: 말린 꼬리→직선, 없던 뿔/날개/무늬 추가)\n"
+            "  단, 표정·자세·각도·크기·조명·화풍 단순화로 인한 자연스러운 차이는 정상(오탐 금지).\n"
+            "  '같은 캐릭터로 알아볼 수 있는가'가 기준. 애매하면 character_ok=true.\n"
+        )
+    return (
+        "\n\n[캐릭터 정합성 — 최우선 검사 (character_ok)]\n"
+        "이 이야기의 주인공:\n" + "\n".join(lines) + "\n"
+        "아래는 '명백하고 확실하게' 위반된 경우에만 character_ok=false, passed=false, score_c=0으로 처리:\n"
+        "  1) 주인공이 지정된 종과 확실히 다른 종으로 그려짐 (예: 거북이여야 하는데 명백히 병아리로 그림)\n"
+        "  2) 같은 종의 주인공이 2마리로 명백히 중복 (예: 주인공 둘이 모두 병아리로 보임)\n"
+        "  3) 프롬프트가 '하나의 합체 동물'을 요구했는데 명백히 별개의 동물 둘로 분리되어 그려짐\n"
+        "     (예: 하나의 생물이어야 할 기린귄이 '기린 한 마리 + 펭귄 한 마리'로 나뉨)\n"
+        "  4) 동물 캐릭터에 사람 얼굴이 그려짐\n"
+        + sheet_note +
+        "※ 매우 중요 — 오탐 방지: 캐릭터를 알아볼 수 있고 종이 대체로 맞으면 반드시 character_ok=true.\n"
+        "  다음은 위반이 아님(정상): 표정·자세·각도·크기·스타일의 자연스러운 변화, 조연·배경 캐릭터의 추가 등장,\n"
+        "  실루엣·뒷모습·먼 배경·클로즈업으로 단순화된 모습. 조금이라도 애매하거나 확신이 없으면 character_ok=true.\n"
+        "  주인공 각각이 올바른 종으로 최소 1번씩 알아볼 수 있게 나오면 통과."
+    )
+
+
+def build_check_prompt(slide: dict, lang: str, characters: dict = None, has_sheets: bool = False) -> str:
     snum     = slide.get("slide_number", 0)
     prompt   = slide.get("image_prompt", "")[:400]
     segs     = slide.get("tts_segments", [])
     story_tx = " ".join(s.get("text", "") for s in segs)[:200]
     species_note = build_species_check(characters or {}, lang)
+    char_gate    = build_character_gate(characters or {}, lang, has_sheets)
 
     if lang == "id":
         return f"""Kamu adalah pengulas kualitas gambar untuk buku cerita anak usia 6-8 tahun.
@@ -164,40 +204,51 @@ Berikan HANYA JSON:
  "passed": <true/false>, "regen_needed": <true jika score<75>}}"""
     else:
         return f"""당신은 초등학교 저학년 동화책 이미지 품질 검토 전문가입니다.
-아래 이미지를 설명과 대조하여 검사하세요.
+아래 이미지를 설명과 대조하여 '엄격하게' 검사하세요. 캐릭터가 잘못 그려지면 절대 통과시키지 마세요.
 
 기대 이미지 설명: "{prompt}"
 이 슬라이드 스토리 텍스트: "{story_tx}"
-{species_note}
+{species_note}{char_gate}
 
-5개 기준으로 평가 (합계 100점):
-[H] 할루시네이션 없음 (요청하지 않은 객체/배경 미등장): 25점
-[E] 교육적 적합성 (폭력·공포·부적절 요소 없음): 25점
-[T] 텍스트 미노출 (이미지 내 글자/말풍선 없음): 20점
-[C] 캐릭터 일치 (인물 수·외형·종 일치): 20점 — 동물 캐릭터에 사람 얼굴 등장 시 0점
+먼저 이미지 속 동물/캐릭터를 종류별로 세어 판단한 뒤, 5개 기준으로 평가 (합계 100점):
+[C] 캐릭터 정합성 (종·수·합체 여부·사람얼굴): 35점 — 위 최우선 검사 위반 시 0점 + character_ok=false
+[H] 할루시네이션 없음 (요청하지 않은 객체/배경 미등장): 20점
+[E] 교육적 적합성 (폭력·공포·부적절 요소 없음): 20점
+[T] 텍스트 미노출 (이미지 내 글자/말풍선 없음): 15점
 [Q] 화질 양호 (너무 어둡지 않고, 자연스러운 색감): 10점
 
+추가 판정 (감점은 위 100점에 반영, 아래 boolean으로도 표시):
+[B] 풀블리드 여부: 이미지 가장자리에 흰 테두리/액자 프레임/레터박스/비네트가 있으면 border_ok=false (있으면 Q 항목에서 감점하고 issues에 명시)
+[S] 화풍 일치: 첨부된 캐릭터 시트와 비교해 렌더링 화풍(수채화체↔치비체 등)이 크게 다르거나 슬라이드마다 요동치는 느낌이면 style_ok=false (표정·각도·조명 차이는 정상, 오탐 금지)
+
 JSON만 응답 (다른 텍스트 없이):
-{{"score": <0-100>, "score_h": <0-25>, "score_e": <0-25>, "score_t": <0-20>, "score_c": <0-20>, "score_q": <0-10>,
- "issues": ["<문제1>", "<문제2>"],
- "passed": <true/false>, "regen_needed": <true if score<75>}}"""
+{{"score": <0-100>, "character_ok": <true/false>, "border_ok": <true/false>, "style_ok": <true/false>, "score_c": <0-35>, "score_h": <0-20>, "score_e": <0-20>, "score_t": <0-15>, "score_q": <0-10>,
+ "issues": ["<문제를 구체적으로: 캐릭터 오류/흰 테두리·프레임 여부/화풍 편차>"],
+ "passed": <true/false>, "regen_needed": <true if score<80 or character_ok false or border_ok false or style_ok false>}}"""
 
 
 # ── Gemini Vision 호출 ────────────────────────────────────────
 
-def check_image_with_llm(slide: dict, image_path: Path, lang: str, characters: dict = None) -> dict:
-    """단일 이미지 LLM 점검. 결과 dict 반환."""
+def check_image_with_llm(slide: dict, image_path: Path, lang: str, characters: dict = None,
+                         sheet_paths: list = None) -> dict:
+    """단일 이미지 LLM 점검. 시트가 있으면 앞에 붙여 디자인 일관성까지 대조. 결과 dict 반환."""
     b64, mime = load_image_b64(image_path)
     if b64 is None:
         return {"score": 0, "issues": ["이미지 파일 없음 또는 로드 실패"], "passed": False, "regen_needed": True}
 
-    prompt = build_check_prompt(slide, lang, characters)
+    sheet_parts = []
+    for sp in (sheet_paths or []):
+        sb64, smime = load_image_b64(sp)
+        if sb64:
+            sheet_parts.append(genai_types.Part.from_bytes(data=base64.b64decode(sb64), mime_type=smime))
+
+    prompt = build_check_prompt(slide, lang, characters, has_sheets=bool(sheet_parts))
 
     for attempt in range(3):
         try:
             resp = _client.models.generate_content(
                 model=os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash"),
-                contents=[
+                contents=sheet_parts + [
                     genai_types.Part.from_bytes(data=base64.b64decode(b64), mime_type=mime),
                     genai_types.Part.from_text(text=prompt),
                 ],
@@ -212,6 +263,23 @@ def check_image_with_llm(slide: dict, image_path: Path, lang: str, characters: d
             if s >= 0 and e > s:
                 result = json.loads(raw[s:e])
                 result["score"] = max(0, min(100, int(result.get("score", 50))))
+                # 캐릭터 정합성 게이트: character_ok=false면 점수 무관 강제 불합격
+                if result.get("character_ok") is False:
+                    result["score"] = min(result["score"], 40)
+                    result["passed"] = False
+                    result["regen_needed"] = True
+                    if not result.get("issues"):
+                        result["issues"] = ["캐릭터 정합성 위반 (종/수/합체) — 강제 재생성"]
+                # 풀블리드/화풍 게이트: 흰 테두리·프레임 또는 화풍 편차면 재생성 유도
+                if result.get("border_ok") is False or result.get("style_ok") is False:
+                    result["passed"] = False
+                    result["regen_needed"] = True
+                    if not result.get("issues"):
+                        reason = "흰 테두리/프레임" if result.get("border_ok") is False else "화풍 편차"
+                        result["issues"] = [f"{reason} 감지 — 재생성 필요"]
+                # 온도 0에서 vision이 사람검토 톤 유지하도록 실패는 재생성 유도
+                if result.get("regen_needed") and "passed" not in result:
+                    result["passed"] = False
                 return result
         except Exception as ex:
             if attempt < 2:
@@ -264,7 +332,7 @@ def main():
     parser.add_argument("--dir",        type=str,   help="에피소드 디렉토리")
     parser.add_argument("--slides",     type=int,   nargs="+", help="검사할 슬라이드 번호 (미지정 시 전체)")
     parser.add_argument("--auto-regen", action="store_true", help="불합격 슬라이드 자동 재생성")
-    parser.add_argument("--min-score",  type=int,   default=DEFAULT_MIN_SCORE, help=f"합격 점수 (기본: {DEFAULT_MIN_SCORE})")
+    parser.add_argument("--min-score",  type=int,   default=80, help="합격 점수 (기본: 80, 캐릭터 정합성 게이트는 별도 강제)")
     parser.add_argument("--force",      action="store_true", help="이미 검사된 슬라이드도 재검사")
     args = parser.parse_args()
 
@@ -283,6 +351,11 @@ def main():
     slides     = story.get("slides", [])
     characters = story.get("meta", {}).get("characters", {})
     images_dir = ep_dir / "images"
+    # 캐릭터 기준 디자인 시트(있으면) — 일관성 대조용 레퍼런스
+    sheet_paths = [p for p in (ep_dir / "characters" / "main_1.png",
+                               ep_dir / "characters" / "main_2.png") if p.exists()]
+    if sheet_paths:
+        print(f"  [일관성] 캐릭터 시트 {len(sheet_paths)}장 대조 사용")
 
     # 기존 결과 로드
     prev_results = {}
@@ -328,14 +401,16 @@ def main():
         print(f"\n  [병렬 점검] {len(llm_queue)}장 동시 처리 중...")
         with ThreadPoolExecutor(max_workers=5) as pool:
             futures = {
-                pool.submit(check_image_with_llm, sl, img_path, lang, characters): sl["slide_number"]
+                pool.submit(check_image_with_llm, sl, img_path, lang, characters, sheet_paths): sl["slide_number"]
                 for sl, img_path in llm_queue
             }
             for future in as_completed(futures):
                 n = futures[future]
                 result = future.result()
                 result["slide"]  = n
-                result["passed"] = result["score"] >= args.min_score
+                # 합격 = 점수 기준 통과 AND 캐릭터 게이트 위반 없음
+                result["passed"] = (result["score"] >= args.min_score
+                                    and result.get("character_ok") is not False)
                 llm_results[n]   = result
                 status = "✓" if result["passed"] else "✗"
                 issues_str = " | ".join(result.get("issues", []))[:60]
@@ -377,26 +452,41 @@ def main():
     if failed_slides:
         print(f"  불합격 슬라이드: {failed_slides}")
 
-    # 자동 재생성
-    regen_list = [n for n in failed_slides if results[next(i for i,r in enumerate(results) if r["slide"]==n)].get("regen_needed", True)]
-    if regen_list and args.auto_regen:
-        print(f"\n  [자동 재생성] 슬라이드 {regen_list} 이미지 재생성 중...")
-        regenerate_slides(ep_dir, regen_list)
-        # 재생성된 슬라이드 재검사
-        print(f"  재생성 후 재검사 중...")
-        for sl in [s for s in target_slides if s["slide_number"] in regen_list]:
-            n        = sl["slide_number"]
-            img_path = images_dir / f"slide_{n:02d}.png"
-            result   = check_image_with_llm(sl, img_path, lang, characters)
-            result["slide"]  = n
-            result["passed"] = result["score"] >= args.min_score
-            # 결과 업데이트
-            for i, r in enumerate(results):
-                if r["slide"] == n:
-                    results[i] = result
-                    break
-            status = "✓" if result["passed"] else "✗ (여전히 미달)"
-            print(f"    슬라이드 {n:02d}: {status} {result['score']}점")
+    # 자동 재생성 — 합격할 때까지 최대 3회 반복 (캐릭터 완벽 우선)
+    def _needs_regen(nn):
+        r = results[next(i for i, rr in enumerate(results) if rr["slide"] == nn)]
+        return r.get("regen_needed", True)
+
+    if args.auto_regen:
+        MAX_ROUNDS = 3
+        remaining = [n for n in failed_slides if _needs_regen(n)]
+        rnd = 0
+        while remaining and rnd < MAX_ROUNDS:
+            rnd += 1
+            print(f"\n  [자동 재생성 {rnd}/{MAX_ROUNDS}] 슬라이드 {remaining} 재생성 중...")
+            regenerate_slides(ep_dir, remaining)
+            print(f"  재생성 후 재검사 중...")
+            still_bad = []
+            for sl in [s for s in target_slides if s["slide_number"] in remaining]:
+                n        = sl["slide_number"]
+                img_path = images_dir / f"slide_{n:02d}.png"
+                result   = check_image_with_llm(sl, img_path, lang, characters, sheet_paths)
+                result["slide"]  = n
+                result["passed"] = (result["score"] >= args.min_score
+                                    and result.get("character_ok") is not False)
+                for i, r in enumerate(results):
+                    if r["slide"] == n:
+                        results[i] = result
+                        break
+                if result["passed"]:
+                    print(f"    슬라이드 {n:02d}: ✓ {result['score']}점 (재생성 성공)")
+                else:
+                    still_bad.append(n)
+                    ci = " | ".join(result.get("issues", []))[:50]
+                    print(f"    슬라이드 {n:02d}: ✗ {result['score']}점 — {ci}")
+            remaining = still_bad
+        if remaining:
+            print(f"\n  ⚠ {MAX_ROUNDS}회 재생성 후에도 미달: {remaining} — 사람 검토 필요 (프롬프트 수동 강화 권장)")
         # 최종 저장
         check_data["slides"] = results
         check_path.write_text(json.dumps(check_data, ensure_ascii=False, indent=2), encoding='utf-8')

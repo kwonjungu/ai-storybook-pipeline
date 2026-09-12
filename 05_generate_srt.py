@@ -28,13 +28,13 @@ PUNCTUATION = ".,!?~"
 
 MAX_LINE_LENGTH = 18
 MAX_LINES = 2
-MAX_CHARS_PER_SUBTITLE = 30  # 한 자막당 최대 글자수 (초과 시 분할) — 쇼츠 스타일
+MAX_CHARS_PER_SUBTITLE = 24  # 한 자막당 최대 글자수 (초과 시 분할) — 1학년 배려 축소
 
 # 언어별 청자 기준 자막 길이 설정
 # CJK(ko/ja)는 전각 문자라 18자/줄이 적정, 라틴 문자는 폭이 절반이라 2배 허용
 # (스토리 언어는 story.json meta.language에서 자동 감지)
 SUBTITLE_LANG_CFG = {
-    "ko": {"max_line": 18, "max_chars": 30},
+    "ko": {"max_line": 18, "max_chars": 24},
     "ja": {"max_line": 16, "max_chars": 28},
     # 라틴 문자권 (en/es/pt/id 등)
     "_latin": {"max_line": 36, "max_chars": 60},
@@ -62,7 +62,15 @@ def wrap_subtitle(text: str) -> str:
     best_score = -1
 
     # 가능한 분리 지점을 탐색
+    # 하드 제약: 분리점은 공백 직후 또는 구두점 직후에서만 허용 (어절 중간 분할 금지)
     for i in range(1, len(text)):
+        prev_ch = text[i - 1]
+        is_after_space = (prev_ch == ' ')
+        is_after_punct = (prev_ch in PUNCTUATION)
+        # 조사 앞(다음 어절 시작)은 대개 공백을 동반하므로 위 두 조건으로 커버됨
+        if not (is_after_space or is_after_punct):
+            continue
+
         line1 = text[:i].rstrip()
         line2 = text[i:].lstrip()
 
@@ -100,15 +108,15 @@ def wrap_subtitle(text: str) -> str:
         line2 = text[best_pos:].lstrip()
         return f"{line1}\n{line2}"
 
-    # 분리 지점을 찾지 못하면 중간에서 분리
+    # 분리 지점을 찾지 못하면 중간에서 가장 가까운 공백을 탐색
     mid = len(text) // 2
-    # 중간 근처의 공백 찾기
-    for offset in range(0, mid):
+    for offset in range(0, len(text)):
         for pos in [mid + offset, mid - offset]:
             if 0 < pos < len(text) and text[pos] == ' ':
                 return f"{text[:pos]}\n{text[pos + 1:]}"
 
-    return f"{text[:mid]}\n{text[mid:]}"
+    # 공백이 전혀 없을 때만 (사실상 발생 안 함) 한 줄 그대로 반환 — 어절 중간 절단 금지
+    return text
 
 
 # ============================================================
@@ -228,6 +236,14 @@ def split_long_text(text: str, max_chars: int = None) -> list[str]:
                         best_pos = idx + len(kb)
                         break
 
+            # 최후 폴백 직전: max_chars 이전의 "마지막 공백"을 넓게 탐색
+            # (조사/쉼표를 못 찾아도 어절 중간 절단을 피하기 위함)
+            if best_pos == -1:
+                last_space = remaining.rfind(' ', 0, max_chars)
+                if last_space > 0:
+                    best_pos = last_space + 1
+
+            # 진짜 최후 수단: 공백조차 없을 때만 어절 무시 강제 절단
             if best_pos == -1:
                 best_pos = max_chars
 

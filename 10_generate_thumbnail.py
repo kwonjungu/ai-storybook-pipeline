@@ -609,6 +609,104 @@ def generate_thumbnail_b(
 
 
 # ---------------------------------------------------------------------------
+# Thumbnail C — Gemini close-up background (thumbnail_c_bg.png) + text only
+# ---------------------------------------------------------------------------
+
+def _wrap_text_to_width(draw, text, font, max_w):
+    """공백 기준 줄바꿈 (한국어는 어절 단위). 반환: 줄 리스트."""
+    words = text.split()
+    if not words:
+        return [text]
+    lines = []
+    cur = words[0]
+    for w in words[1:]:
+        trial = cur + " " + w
+        tw, _ = get_text_bbox(draw, trial, font)
+        if tw <= max_w:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = w
+    lines.append(cur)
+    return lines
+
+
+def generate_thumbnail_c(ep_dir: Path, thumbnail_data: dict, meta: dict) -> Path:
+    """thumbnail_c_bg.png(Gemini 클로즈업 배경) 위에 thumbnail.text 만 우측에 배치.
+
+    - 배경: {ep_dir}/thumbnail_c_bg.png (10b_batch_thumb_bg.py 로 미리 생성).
+      없으면 감정 장면 슬라이드로 폴백.
+    - 텍스트: thumbnail.text 1개만, Jua ~110px, 흰색 + 검정 스트로크, 우측 공간.
+    - sub_text 는 그리지 않음.
+    - 출력: thumbnail_c.png
+    """
+    bg_path = ep_dir / "thumbnail_c_bg.png"
+    if bg_path.exists():
+        bg = load_image_safe(bg_path)
+    else:
+        # 폴백: 감정 장면 슬라이드
+        slide_num = thumbnail_data.get("slide_number", 5)
+        scene_path = ep_dir / "images" / f"slide_{slide_num:02d}.png"
+        print(f"[WARN] thumbnail_c_bg.png 없음 → 폴백 배경 사용: {scene_path.name}")
+        bg = load_image_safe(scene_path)
+
+    # 우측 텍스트 공간에 살짝 어두운 그라디언트 (가독성)
+    right_shade = Image.new("RGBA", (THUMB_W, THUMB_H), (0, 0, 0, 0))
+    shade_draw = ImageDraw.Draw(right_shade)
+    x_start = int(THUMB_W * 0.52)
+    for x in range(x_start, THUMB_W):
+        # 왼→오 갈수록 진해지는 세로 그라디언트
+        a = int(((x - x_start) / (THUMB_W - x_start)) * 130)
+        shade_draw.line([(x, 0), (x, THUMB_H)], fill=(0, 0, 0, a))
+    bg = Image.alpha_composite(bg, right_shade)
+
+    draw = ImageDraw.Draw(bg)
+
+    main_text = thumbnail_data.get("text", "동화 이야기")
+
+    # 우측 영역 (전체 폭의 우측 ~45%)
+    region_x = int(THUMB_W * 0.55)
+    region_w = THUMB_W - region_x - 50  # 우측 여백 50px
+
+    # 폰트 크기 자동 축소 + 줄바꿈
+    font_size = 110
+    while font_size >= 60:
+        font = load_font(font_size)
+        lines = _wrap_text_to_width(draw, main_text, font, region_w)
+        # 최대 3줄, 총 높이가 화면 안에 들어오는지
+        _, lh = get_text_bbox(draw, "가", font)
+        line_gap = int(lh * 0.35)
+        total_h = len(lines) * lh + (len(lines) - 1) * line_gap
+        if len(lines) <= 3 and total_h <= THUMB_H - 120:
+            break
+        font_size -= 8
+    else:
+        font = load_font(60)
+        lines = _wrap_text_to_width(draw, main_text, font, region_w)
+        _, lh = get_text_bbox(draw, "가", font)
+        line_gap = int(lh * 0.35)
+        total_h = len(lines) * lh + (len(lines) - 1) * line_gap
+
+    # 세로 중앙 정렬, 우측 영역 중앙에 배치
+    y = (THUMB_H - total_h) // 2
+    region_cx = region_x + region_w // 2
+    for ln in lines:
+        lw, _ = get_text_bbox(draw, ln, font)
+        x = region_cx - lw // 2
+        draw_text_with_stroke(
+            draw, (x, y), ln, font,
+            fill="white", stroke_width=6, stroke_fill="black",
+        )
+        y += lh + line_gap
+
+    bg = paste_logo(bg)
+
+    out_path = ep_dir / "thumbnail_c.png"
+    bg.convert("RGB").save(out_path, "PNG")
+    return out_path
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -618,8 +716,8 @@ def main():
     parser = argparse.ArgumentParser(description="YouTube 썸네일 생성 (A/B 테스트용)")
     parser.add_argument("--ep", type=int, default=None, help="에피소드 번호 (기본: 1)")
     parser.add_argument("--dir", type=str, default=None, help="출력 디렉터리 직접 지정 (예: output/bsl01)")
-    parser.add_argument("--style", type=str, default="default", choices=["default", "book"],
-                        help="썸네일 스타일: default (기본) 또는 book (책 표지 스타일)")
+    parser.add_argument("--style", type=str, default="default", choices=["default", "book", "c"],
+                        help="썸네일 스타일: default (A/B) / book (책 표지) / c (Gemini 클로즈업 배경 + 텍스트)")
     args = parser.parse_args()
 
     if args.dir:
@@ -669,7 +767,15 @@ def main():
     if effective_style == "default" and thumbnail_data.get("style") == "book":
         effective_style = "book"
 
-    if effective_style == "book":
+    if effective_style == "c":
+        # Style C: Gemini 클로즈업 배경 + 텍스트만 (sub_text 미표시)
+        path_c = generate_thumbnail_c(ep_dir, thumbnail_data, meta)
+        print(f"  [C] 생성 완료 -> {path_c}")
+        print()
+        print("썸네일 C 생성 완료!")
+        print(f"  C: {path_c}")
+        return
+    elif effective_style == "book":
         # Generate Book Cover Thumbnails A and B
         path_a, path_b = make_book_cover(ep_dir, story, thumbnail_data, _FONT_PATH)
     else:

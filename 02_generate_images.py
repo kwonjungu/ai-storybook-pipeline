@@ -50,6 +50,16 @@ CHAR_REF_GUARD = (
     "clothing/accessories. Do NOT invent a different-looking character. "
 )
 
+# 화풍 고정 + 풀블리드 가드 (모든 슬라이드·시트 프롬프트에 결합)
+# 슬라이드마다 치비체↔수채화체가 요동하는 문제와, 생성 이미지에 구워진 흰 테두리를 차단.
+STYLE_GUARD = (
+    "Soft watercolor children's picture-book style, rounded chibi proportions, "
+    "EXACTLY the same rendering style as the attached character sheet. "
+    "Same art style across ALL slides. "
+    "Full-bleed illustration: NO white borders, NO frames, NO letterboxing, "
+    "NO vignette. "
+)
+
 # 구도별 캐릭터 절대 크기 (프레임 높이 대비 %) — 슬라이드 간 크기 널뛰기 방지
 # 절댓값을 명시해 앞뒤 장면의 캐릭터 스케일 점프를 억제한다.
 SIZE_BY_COMPOSITION = {
@@ -106,6 +116,7 @@ def collect_characters(story) -> dict:
 def build_char_sheet_prompt(info: dict) -> str:
     """전신 캐릭터 시트 프롬프트 (정면·중립 포즈·깨끗한 단색 배경)."""
     return (
+        STYLE_GUARD +
         f"Full-body character sheet of {info['name']}: {info['appearance_en']} "
         "Front view, standing, neutral friendly pose, whole body visible from "
         "head to toe, centered, clean solid soft pastel background, "
@@ -147,20 +158,27 @@ def generate_character_sheets(client, story, ep_dir, force=False) -> dict:
     return sheets
 
 
-def _refs_for_slide(image_prompt: str, chars: dict, char_sheets: dict) -> list:
-    """슬라이드 프롬프트에 등장하는 캐릭터의 시트 경로 목록 (최대 MAX_REFS_PER_IMAGE).
-    main_* 캐릭터는 항상 포함, supporting은 프롬프트에 언급될 때만."""
+def _refs_for_slide(image_prompt: str, chars: dict, char_sheets: dict, extra_text: str = "") -> list:
+    """슬라이드에 등장하는 캐릭터의 시트 경로 목록 (최대 MAX_REFS_PER_IMAGE).
+    main_* 캐릭터는 항상 포함, supporting은 프롬프트/나레이션에 언급될 때만.
+    조연 이름이 한글이어도 잡도록 image_prompt + slide 나레이션(extra_text)을 함께 검색하고
+    이름을 어절 단위로 매칭한다(예: '반디 할미' → '반디' 또는 '할미')."""
     refs = []
-    pl = image_prompt.lower()
+    hay = (image_prompt + " " + (extra_text or "")).lower()
     for key, path in char_sheets.items():
         info = chars.get(key, {})
         if key.startswith("main_"):
             refs.append(path)
             continue
         match_key = info.get("match_key", key)
-        name = (info.get("name") or "").split()
-        first = name[0].lower() if name else ""
-        if match_key.replace("_", " ").lower() in pl or (first and first in pl):
+        cands = [match_key.replace("_", " ").lower()]
+        for tok in (info.get("name") or "").replace("_", " ").split():
+            if len(tok) >= 2:
+                cands.append(tok.lower())
+        for tok in (info.get("name_en") or "").split():
+            if len(tok) >= 2:
+                cands.append(tok.lower())
+        if any(c and c in hay for c in cands):
             refs.append(path)
     return refs[:MAX_REFS_PER_IMAGE]
 
@@ -261,8 +279,9 @@ def build_prompts(story, slides, ep_dir, force=False, char_sheets=None):
             image_prompt += size_guard_for(slide.get("composition", ""))
 
         # 캐릭터 레퍼런스 (Phase A에서 생성한 시트) + STRICT 가드 (반드시 최상단)
-        ref_paths = _refs_for_slide(image_prompt, all_chars, char_sheets)
-        guard = CHAR_REF_GUARD if ref_paths else ""
+        slide_text = " ".join(seg.get("text", "") for seg in slide.get("tts_segments", []))
+        ref_paths = _refs_for_slide(image_prompt, all_chars, char_sheets, slide_text)
+        guard = (CHAR_REF_GUARD if ref_paths else "") + STYLE_GUARD
 
         # 16:9 (기본)
         tasks.append({

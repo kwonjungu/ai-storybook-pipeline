@@ -53,3 +53,12 @@ pipeline_diagram.html
 
 # ���������� ���� �α�
 *.log
+
+# 채널 내부 분석/진단 리포트 (로컬 전용, public repo 비공개)
+_channel_audit.json
+_channel_audit_backup_*.json
+_audit_thumbs/
+_rewrite_preview.md
+개선설계계획서_*.md
+채널진단보고서_*.md
+활동지컨설팅보고서_*.md

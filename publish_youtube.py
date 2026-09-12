@@ -171,77 +171,23 @@ def upload_worksheet_to_drive(pdf_path: Path, story: dict, creds) -> str:
     return url
 
 
-def build_description(story: dict, pptx_url: str = None, worksheet_url: str = None) -> str:
-    meta = story.get("meta", {})
-    grade = meta.get("grade", 2)
-    semester = meta.get("semester", "")
-    series = meta.get("series", "")
-    subject_full = " ".join(str(x) for x in
-                            [f"{grade}학년", f"{semester}학기" if semester else "",
-                             meta.get("subject", ""), series] if x).strip()
-    subject = meta.get("subject", "")
-    unit_title = meta.get("unit_title", "")
-    sub_unit = meta.get("sub_unit", "")
-    story_title = meta.get("story_title", "")
+# build_description / build_title / build_tags 는 yt_meta.py 로 추출됨
+# (신규 업로드와 소급 리라이트 13_rewrite_metadata.py 가 포맷을 공유하기 위함)
+import yt_meta
 
-    slides = [s for s in story.get("slides", []) if s.get("type") == "story"]
-    summary = " ".join(s["text"][:80] for s in slides[:3])
 
-    chars = meta.get("characters", {})
-    char_names = []
-    for key in ("main_1", "main_2"):
-        ch = chars.get(key)
-        if ch and ch.get("name"):
-            char_names.append(ch["name"])
-
-    edu_goals = meta.get("educational_goals", [])
-    goal_lines = "\n".join(f"  • {g}" for g in edu_goals[:3]) if edu_goals else ""
-
-    pptx_section = ""
-    if pptx_url:
-        pptx_section = f"""
-📊 그림책 PPT 무료 다운로드
-  👉 {pptx_url}
-  (수업·가정학습용으로 자유롭게 사용하세요!)
-"""
-    worksheet_section = ""
-    if worksheet_url:
-        worksheet_section = f"""
-✏️ 독후 활동지(워크시트) 무료 다운로드
-  👉 {worksheet_url}
-  (인쇄해서 바로 수업에 활용하세요!)
-"""
-
-    return f"""🌟 {story_title}
-
-{summary}...
-
-━━━━━━━━━━━━━━━━━━
-📚 교과: {subject_full}  |  {unit_title}
-📖 차시: {sub_unit}
-🎯 대상: 초등학교 {grade}학년
-👥 주인공: {', '.join(char_names)}
-━━━━━━━━━━━━━━━━━━
-{goal_lines}
-{pptx_section}{worksheet_section}
-📌 댓글로 문의해 주시면 빠르게 답변드립니다 😊
-
-━━━━━━━━━━━━━━━━━━
-#초등동화 #{grade}학년 #독후활동 #무료활동지 #{story_title.replace(' ', '')} #{subject} #그림책PPT
-"""
+def build_description(story: dict, pptx_url: str = None, worksheet_url: str = None,
+                      playlist_url: str = None, quiz_start: float = None) -> str:
+    """yt_meta.build_description 로 위임 (하위호환 시그니처 유지).
+    fix_drive_links.py 는 build_description(story, pptx_url, ws_url) 형태로 호출한다."""
+    return yt_meta.build_description(
+        story, pptx_url=pptx_url, worksheet_url=worksheet_url,
+        playlist_url=playlist_url, quiz_start=quiz_start,
+    )
 
 
 def build_tags(story: dict) -> list[str]:
-    meta = story.get("meta", {})
-    grade = meta.get("grade", 2)
-    story_title = meta.get("story_title", "")
-    subject = meta.get("subject", "")
-    unit_title = meta.get("unit_title", "")
-    return [
-        f"초등{grade}학년", "초등동화", "독후활동", "무료활동지",
-        story_title, subject, unit_title, "어린이동화", "교육동화",
-        f"{grade}학년", "초등교육", "그림책PPT", "수업자료",
-    ]
+    return yt_meta.build_tags(story)
 
 
 # ─────────────────────────────────────────────────
@@ -270,15 +216,8 @@ def upload_video(
     story_title = meta.get("story_title", "동화")
     grade = meta.get("grade", 2)
 
-    # youtube_title 우선, 없으면 자동 생성
-    youtube_title = meta.get("youtube_title", "")
-    if not youtube_title:
-        subject = meta.get("subject", "")
-        unit_title = meta.get("unit_title", "")
-        parts = [p for p in [subject, unit_title] if p]
-        context = " | ".join(parts)
-        youtube_title = f"{grade}학년 {context} | {story_title}" if context else f"[초등 {grade}학년 동화] {story_title}"
-    title = youtube_title
+    # 새 제목 공식 (yt_meta.build_title): {story_title}! | {학년} {학기} {series} {소단원} ({쪽수})
+    title = yt_meta.build_title(story)
 
     youtube = build("youtube", "v3", credentials=creds)
 

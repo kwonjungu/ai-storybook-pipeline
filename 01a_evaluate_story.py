@@ -304,6 +304,27 @@ Output HANYA JSON array ([{{...}}, {{...}}], tidak ada teks lain):"""
 JSON 배열만 출력 ([{{...}}, {{...}}] 형식, 다른 텍스트 없이):"""
 
 
+def _extract_json_array(raw: str) -> list | None:
+    """LLM 응답에서 첫 번째 유효한 JSON 배열을 추출.
+
+    `find("[") ~ rfind("]")` 방식은 배열 앞뒤(또는 배열 사이)에 설명 문구나
+    두 번째 배열이 섞이면 'Extra data' 로 실패한다. raw_decode 로 각 '[' 위치에서
+    파싱을 시도해 가장 긴(=본문) 배열을 고른다.
+    """
+    dec = json.JSONDecoder()
+    best = None
+    idx = raw.find("[")
+    while idx != -1:
+        try:
+            val, _ = dec.raw_decode(raw[idx:])
+            if isinstance(val, list) and val and (best is None or len(val) > len(best)):
+                best = val
+        except ValueError:
+            pass
+        idx = raw.find("[", idx + 1)
+    return best
+
+
 def improve_story(story: dict, eval_result: dict, ep_dir: Path) -> dict | None:
     """평가 결과를 바탕으로 스토리 개선 후 story.json 업데이트. 성공 시 새 story 반환."""
     lang   = story.get("meta", {}).get("language", "ko")
@@ -314,12 +335,11 @@ def improve_story(story: dict, eval_result: dict, ep_dir: Path) -> dict | None:
         raw = _call_claude_cli(prompt, model=IMPROVE_MODEL, timeout=1500)
 
         # JSON 배열 파싱 (LLM이 story 슬라이드 배열만 반환)
-        s = raw.find("["); e = raw.rfind("]") + 1
-        if s < 0 or e <= s:
+        improved_slides = _extract_json_array(raw)
+        if improved_slides is None:
             print("  [WARN] 개선 응답에서 JSON 배열을 찾을 수 없음")
             return None
 
-        improved_slides = json.loads(raw[s:e])
         if not isinstance(improved_slides, list) or not improved_slides:
             print("  [WARN] 개선 응답이 빈 배열이거나 잘못된 형식")
             return None
@@ -357,7 +377,8 @@ def improve_story(story: dict, eval_result: dict, ep_dir: Path) -> dict | None:
         story_path = ep_dir / "story.json"
         backup     = ep_dir / "story_prev.json"
         if story_path.exists():
-            story_path.rename(backup)
+            # Windows에서 Path.rename은 대상이 이미 있으면 실패 → os.replace로 덮어쓰기
+            os.replace(story_path, backup)
 
         with open(story_path, "w", encoding="utf-8") as f:
             json.dump(new_story, f, ensure_ascii=False, indent=2)
@@ -504,6 +525,23 @@ def main():
         else:
             print("  스토리 개선 실패. 현재 버전 유지.")
             break
+
+    # 최고 점수 버전을 실제 story.json에 반영
+    # (best_story는 메모리에만 있었으므로, 마지막 사이클이 더 낮은 점수여도
+    #  디스크에는 그 버전이 남아 있던 버그를 방지)
+    try:
+        on_disk = json.loads(story_path.read_text(encoding='utf-8'))
+    except Exception:
+        on_disk = None
+    if on_disk != best_story:
+        discarded = ep_dir / "story_discarded.json"
+        if on_disk is not None:
+            with open(discarded, "w", encoding="utf-8") as f:
+                json.dump(on_disk, f, ensure_ascii=False, indent=2)
+        with open(story_path, "w", encoding="utf-8") as f:
+            json.dump(best_story, f, ensure_ascii=False, indent=2)
+        print(f"\n  [복원] 최고 점수({best_score}점) 버전을 story.json에 기록")
+        print(f"         마지막 사이클 버전은 story_discarded.json 으로 보관")
 
     # 최종 결과
     print(f"\n{'='*60}")

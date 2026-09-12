@@ -248,7 +248,11 @@ def wrap_text(text: str, max_chars: int = 22, max_lines: int = 3) -> list[str]:
 
 
 def wrap_korean(text: str, max_chars: int = 13, max_lines: int = 3) -> list[str]:
-    """어절(공백) 단위로 한국어 텍스트를 줄바꿈합니다."""
+    """어절(공백) 단위로 한국어 텍스트를 줄바꿈합니다.
+
+    max_lines 초과분을 마지막 줄에 억지로 합치지 않습니다(가독성 저하 방지).
+    초과 시에는 실제 필요한 줄 수를 그대로 반환하며, 호출부(fit_font_for_lines)에서
+    폰트 크기를 줄여 max_lines 내에 수용하도록 합니다."""
     text = text.strip()
     if not text:
         return [""]
@@ -263,19 +267,36 @@ def wrap_korean(text: str, max_chars: int = 13, max_lines: int = 3) -> list[str]
         else:
             if current:
                 lines.append(current)
-            if len(lines) >= max_lines:
-                lines[-1] = lines[-1] + " " + word
-                current = ""
-                continue
             current = word
 
     if current:
-        if len(lines) < max_lines:
-            lines.append(current)
-        else:
-            lines[-1] = lines[-1] + " " + current
+        lines.append(current)
 
     return lines if lines else [text]
+
+
+def fit_font_for_lines(text: str, base_size: int, wrap_chars: int,
+                       max_lines: int = 3, min_size: int = 48):
+    """텍스트가 max_lines 안에 들어가도록 폰트 크기를 자동 축소합니다.
+
+    반환: (font, lines). base_size부터 시작해 줄 수가 max_lines 이하가 될 때까지
+    폰트를 줄이고, wrap_chars도 폰트 축소 비율에 맞춰 늘려 한 줄 수용량을 키웁니다.
+    min_size에서도 초과하면 그 크기로 줄바꿈한 결과를 그대로 사용."""
+    is_en = is_english_text(text)
+
+    def _wrap(chars):
+        if is_en:
+            return wrap_text(text, max_chars=chars, max_lines=max_lines)
+        return wrap_korean(text, max_chars=chars, max_lines=max_lines)
+
+    size = base_size
+    lines = _wrap(wrap_chars)
+    while len(lines) > max_lines and size > min_size:
+        size = max(min_size, size - 6)
+        # 폰트가 작아진 만큼 한 줄에 더 많은 글자 수용 (base_size 대비 비례)
+        chars = max(wrap_chars, int(wrap_chars * base_size / size))
+        lines = _wrap(chars)
+    return get_font(size), lines
 
 
 def draw_rounded_rect(draw: ImageDraw.ImageDraw, xy: tuple, radius: int,
@@ -369,12 +390,9 @@ def make_quiz_question(ep_dir: Path, q_index: int, question: dict, story: dict |
 
     # --- Question text below center ---
     q_text = question.get("question", "")
-    q_font = get_font(90)
     wrap_chars = lbl.get("wrap_chars", 13)
-    if is_english_text(q_text):
-        lines = wrap_text(q_text, max_chars=wrap_chars, max_lines=3)
-    else:
-        lines = wrap_korean(q_text, max_chars=wrap_chars, max_lines=3)
+    # 3줄 초과 시 폰트 자동 축소로 3줄 내 수용
+    q_font, lines = fit_font_for_lines(q_text, base_size=90, wrap_chars=wrap_chars, max_lines=3)
 
     line_y = qiy + qih + 30
     for line in lines:
@@ -460,12 +478,9 @@ def make_quiz_answer(ep_dir: Path, a_index: int, question: dict, story: dict | N
 
     # --- Answer text center ---
     answer_text = question.get("answer", "")
-    answer_font = get_font(96)
     wrap_chars = lbl.get("wrap_chars", 13)
-    if is_english_text(answer_text):
-        lines = wrap_text(answer_text, max_chars=wrap_chars, max_lines=3)
-    else:
-        lines = wrap_korean(answer_text, max_chars=wrap_chars, max_lines=3)
+    # 3줄 초과 시 폰트 자동 축소로 3줄 내 수용
+    answer_font, lines = fit_font_for_lines(answer_text, base_size=96, wrap_chars=wrap_chars, max_lines=3)
 
     total_line_h = 0
     line_heights = []

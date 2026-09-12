@@ -124,6 +124,38 @@ GEMINI_QUIZ_LINES = {
     ],
 }
 
+
+def clean_tts_text(text: str) -> str:
+    """TTS 낭독용 텍스트 정리 — 특수문자(…—― 등) 제거.
+    TTS 엔진이 특수문자를 읽어버리거나 어색하게 처리하는 것을 방지."""
+    if not text:
+        return ""
+    t = str(text)
+    # 말줄임표·대시류 → 쉼표/공백으로 정규화
+    t = t.replace("…", ",").replace("...", ",")
+    t = t.replace("—", ", ").replace("―", ", ").replace("–", ", ")
+    t = t.replace("·", " ").replace("•", " ")
+    # 따옴표·괄호류 제거 (감정 지시 오독 방지)
+    for ch in ["“", "”", "‘", "’", "「", "」", "『", "』", "《", "》", "〈", "〉"]:
+        t = t.replace(ch, "")
+    # 다중 공백/쉼표 정리
+    while ",," in t:
+        t = t.replace(",,", ",")
+    while "  " in t:
+        t = t.replace("  ", " ")
+    return t.strip().strip(",").strip()
+
+
+# 퀴즈 본문 낭독 브릿지 문구 (언어별)
+QUIZ_Q_BRIDGE = {
+    "ko": " 함께 생각해 볼까요?",
+    "en": " Let's think together!",
+    "id": " Ayo kita pikirkan bersama!",
+    "es": " ¡Pensemos juntos!",
+    "pt": " Vamos pensar juntos!",
+}
+
+
 # ---------------------------------------------------------------------------
 # Typecast API 설정 (한국어)
 # 문서: https://typecast.ai/docs/api-reference/text-to-speech/text-to-speech
@@ -896,9 +928,39 @@ def run_gemini_tts_pipeline(ep_dir: Path, story: dict, lang: str = "id"):
         if out_path.exists():
             print(f"  {fname}.wav — 이미 존재, 건너뜀")
             continue
-        result = generate_tts_gemini(quiz_voice, text, emotion, out_path, quiz_speed)
+        result = generate_tts_gemini(quiz_voice, clean_tts_text(text), emotion, out_path, quiz_speed)
         print(f"  {fname}.wav — {'완료' if result == 'ok' else '실패'}")
         time.sleep(1)
+
+    # ── 퀴즈 문제·정답 본문 낭독 (narrator, 1학년 문해력 배려) ─────
+    quiz_questions = story.get("activity_sheet", {}).get("quiz_questions", [])
+    bridge = QUIZ_Q_BRIDGE.get(lang, QUIZ_Q_BRIDGE["en"])
+    if quiz_questions:
+        print(f"[퀴즈 본문 TTS] narrator 낭독 {len(quiz_questions)}문항")
+    for i, qq in enumerate(quiz_questions):
+        qnum = i + 1
+        q_text = clean_tts_text(qq.get("question", ""))
+        a_text = clean_tts_text(qq.get("answer", ""))
+        # 문제 본문 + 브릿지
+        if q_text:
+            q_body = audio_dir / f"quiz_q{qnum}_body.wav"
+            if q_body.exists():
+                print(f"  quiz_q{qnum}_body.wav — 이미 존재, 건너뜀")
+            else:
+                result = generate_tts_gemini(quiz_voice, q_text + bridge,
+                                             "warm, clear storytelling tone", q_body, quiz_speed)
+                print(f"  quiz_q{qnum}_body.wav — {'완료' if result == 'ok' else '실패'}")
+                time.sleep(1)
+        # 정답 본문
+        if a_text:
+            a_body = audio_dir / f"quiz_a{qnum}_body.wav"
+            if a_body.exists():
+                print(f"  quiz_a{qnum}_body.wav — 이미 존재, 건너뜀")
+            else:
+                result = generate_tts_gemini(quiz_voice, a_text,
+                                             "warm, clear storytelling tone", a_body, quiz_speed)
+                print(f"  quiz_a{qnum}_body.wav — {'완료' if result == 'ok' else '실패'}")
+                time.sleep(1)
 
     # ── Shorts 훅 TTS ────────────────────────────────────────
     hook_line = story.get("shorts_strategy", {}).get("hook_line", "")
@@ -1565,13 +1627,42 @@ def main():
             if out_path.exists():
                 print(f"  {fname}.wav — 이미 존재, 건너뜀")
                 continue
-            ok = generate_tts_typecast(api_key, mascot_voice_id, text, out_path,
+            ok = generate_tts_typecast(api_key, mascot_voice_id, clean_tts_text(text), out_path,
                                        speed=mascot_speed, emotion="기쁨",
                                        ep_dir=ep_dir)
             if ok == "ok":
                 print(f"  {fname}.wav — 완료")
             else:
                 print(f"  {fname}.wav — 실패")
+
+        # 퀴즈 문제·정답 본문 낭독 (narrator 보이스, 1학년 문해력 배려)
+        narrator_vi = voice_map.get("narrator", mascot_vi)
+        narr_voice_id = narrator_vi.get("voice_id", mascot_voice_id)
+        narr_speed = narrator_vi.get("speed", mascot_speed)
+        quiz_questions = story.get("activity_sheet", {}).get("quiz_questions", [])
+        bridge = QUIZ_Q_BRIDGE.get("ko")
+        if quiz_questions:
+            print(f"  [퀴즈 본문] narrator 낭독 {len(quiz_questions)}문항")
+        for i, qq in enumerate(quiz_questions):
+            qnum = i + 1
+            q_text = clean_tts_text(qq.get("question", ""))
+            a_text = clean_tts_text(qq.get("answer", ""))
+            if q_text:
+                q_body = audio_dir / f"quiz_q{qnum}_body.wav"
+                if q_body.exists():
+                    print(f"  quiz_q{qnum}_body.wav — 이미 존재, 건너뜀")
+                else:
+                    ok = generate_tts_typecast(api_key, narr_voice_id, q_text + bridge, q_body,
+                                               speed=narr_speed, emotion="", ep_dir=ep_dir)
+                    print(f"  quiz_q{qnum}_body.wav — {'완료' if ok == 'ok' else '실패'}")
+            if a_text:
+                a_body = audio_dir / f"quiz_a{qnum}_body.wav"
+                if a_body.exists():
+                    print(f"  quiz_a{qnum}_body.wav — 이미 존재, 건너뜀")
+                else:
+                    ok = generate_tts_typecast(api_key, narr_voice_id, a_text, a_body,
+                                               speed=narr_speed, emotion="", ep_dir=ep_dir)
+                    print(f"  quiz_a{qnum}_body.wav — {'완료' if ok == 'ok' else '실패'}")
 
     # ------------------------------------------------------------------
     # 5단계: Shorts 훅 대사 TTS 생성

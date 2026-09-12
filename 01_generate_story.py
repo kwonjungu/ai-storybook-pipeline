@@ -46,6 +46,568 @@ GEMINI_TTS_VOICES = {
 # ── BSL 에피소드 목록 (바슬즐 / 통합교과 시리즈) ──────────
 # 키: 출력 폴더 이름 (예: "bsl03" → output/bsl03)
 BSL_EPISODES = {
+    "bsl27": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "하루",
+        "unit": "", "unit_title": "하루의 리듬 (40-41p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "새로운 주인공의 특별편. 리듬을 좋아하는 아기 너구리 '통통'과 방울 소리를 좋아하는 아기 여우 "
+            "'짤랑'이 주인공. 통통이는 노래 '나의 하루'를 부르며 아침부터 저녁까지 자신의 하루를 "
+            "리듬악기 소리로 표현해 보고 싶어 한다. 아침엔 활기차게 일어나는 소리를 탬버린으로(통통통), "
+            "낮엔 신나게 뛰노는 소리를 마라카스로(차르르), 오후 간식 시간엔 맑은 소리를 트라이앵글로(딩동), "
+            "저녁엔 차분히 하루를 정리하는 소리를 캐스터네츠로(딱딱) 표현하며 악기를 하나씩 배워 나간다. "
+            "짤랑이는 방울 소리를 좋아해서 처음엔 아무 때나 흔들어 리듬이 엉망이 되지만, 통통이와 함께 "
+            "'나의 하루' 노랫말에 맞춰 박자 맞추는 연습을 하며 저녁 생활(씻기, 정리하기, 내일 준비하기, "
+            "잠자리 들기)에 어울리는 느리고 차분한 리듬을 찾아간다. "
+            "친구와 함께 악기 소리를 주고받으며 '내 하루도 리듬이 있구나, 저녁엔 느리고 차분한 리듬이 "
+            "어울리는구나'를 깨닫는다. 마지막엔 이 닦기·잠옷 갈아입기·인사하기 같은 바른 저녁 습관을 "
+            "리듬에 맞춰 신나게 실천하고, 편안한 마음으로 하루를 마무리한다. "
+            "'하루에는 저마다 다른 리듬이 있고, 그 리듬에 맞춰 바르게 생활하면 하루가 더 즐거워진다'는 "
+            "메시지. 마지막에 '너의 저녁 시간은 어떤 리듬일까? 어떤 악기 소리와 어울릴까?'라고 묻는 "
+            "열린 결말. 1학년 눈높이, 리듬 의성어·의태어(통통, 딩동, 딱딱, 차르르)를 풍부하게."
+        ),
+        "world_setting": "daily_rhythm_instruments",
+        "world_desc": (
+            "하루의 시간마다 다른 리듬이 흐르는 집과 마당 — 아침 햇살 아래 탬버린, 한낮의 마라카스, "
+            "오후의 트라이앵글, 저녁 별빛 아래 캐스터네츠와 아늑한 잠자리"
+        ),
+        "character_type": (
+            "NEW main characters for this special episode (NOT the chick and turtle): "
+            "main_1 Tongtong — a cheerful baby raccoon with a round fluffy ringed tail, big round eyes, "
+            "soft grey-brown fur with a dark mask marking around the eyes, holding or wearing a small "
+            "tambourine, energetic playful expression; "
+            "main_2 Jjallang — a gentle baby fox with fluffy orange-and-white fur, a fluffy tail tip, "
+            "bright eyes, wearing a tiny jingle bell charm around the neck, calm sweet expression. "
+            "CRITICAL: all characters must have cute ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "warm scenes that shift tone with time of day (bright morning to soft glowing evening), "
+            "rounded adorable animal character designs, gentle musical motifs (tambourine, triangle, "
+            "castanets, maracas), clean warm colors, storybook composition, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl26": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "하루",
+        "unit": "", "unit_title": "해야 해야 나오너라 (38-39p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "삐요와 토토 시리즈. 어느 화창한 오후, 마당에서 놀던 삐요와 토토가 처음으로 자기 그림자를 "
+            "발견하고 깜짝 놀란다. 그림자가 자기를 따라 이리저리 움직이는 게 신기해서 궁금해하다가, "
+            "해님이 구름 뒤에 숨어 그림자가 흐릿해지자 '해야 해야 나오너라 뒷동산에 나오너라'라는 노래를 "
+            "신나게 부르며 해님을 불러낸다. 해님이 다시 나오자 그림자가 다시 선명해지고, 해가 있어야만 "
+            "그림자가 생긴다는 것과 해를 등지는 쪽으로 그림자가 길게 생긴다는 것을 자연스럽게 깨닫는다. "
+            "신이 난 두 친구는 그림자밟기 놀이를 한다: 서로 도망다니며 상대의 그림자를 밟으면 술래가 "
+            "바뀌는 놀이. 처음엔 무작정 쫓아가다 넘어질 뻔하지만, 몸을 낮추거나 재빠르게 방향을 바꾸는 "
+            "요령을 터득하며 점점 더 신나게 논다. 실컷 뛰어놀아 몸이 노곤해지자 둘은 나란히 앉아 몸을 "
+            "편안하게 하는 마무리 체조(기지개 켜기, 팔다리 털기, 깊게 숨쉬기)를 함께 하며 오후를 차분히 "
+            "마무리한다. 체조를 마친 뒤 서로 오늘 함께 놀아줘서 고맙다고, 그림자밟기를 잘한다고 칭찬을 "
+            "주고받는다. '해가 있어야 그림자가 생기고, 친구와 함께 놀면 오후가 더 즐거워진다'는 메시지 "
+            "+ 몸과 마음을 편안히 마무리하는 습관. 마지막에 '너는 오늘 오후에 무엇을 하며 놀았어? 네 "
+            "그림자는 어떤 모양이었어?'라고 묻는 열린 결말. 1학년 눈높이, 놀이 의성어·의태어(살금살금, "
+            "폴짝, 후다닥)를 풍부하게."
+        ),
+        "world_setting": "afternoon_shadow_play",
+        "world_desc": (
+            "햇살 가득한 오후의 마당과 뒷동산 — 길게 늘어지는 그림자, 구름 사이로 비치는 햇빛, "
+            "잔디밭과 나무 그늘"
+        ),
+        "character_type": (
+            "the SAME two main characters as previous episodes, identical designs: "
+            "main_1 Ppiyo — a small fluffy round yellow chick with soft downy feathers, tiny orange "
+            "beak and orange feet, big sparkling black eyes, wearing a little red mini backpack, "
+            "short flappy wings, bright curious energetic expression; "
+            "main_2 Toto — a small green baby turtle with a rounded shell patterned with soft teal "
+            "and moss green hexagons, gentle calm eyes, wearing a small sky blue neckerchief, "
+            "friendly relaxed smile, sturdy tiny legs. "
+            "Clear long soft-edged shadows cast on the ground beneath the characters. "
+            "CRITICAL: all characters must have ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "warm golden-hour afternoon sunlight with long soft shadows, rounded adorable animal "
+            "character designs, clean warm colors, storybook composition, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl25": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "하루",
+        "unit": "", "unit_title": "하루 세 번 (36-37p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "새로운 주인공의 특별편. 주인공은 좋아하는 것만 먹으려는 편식쟁이 아기 여우 '까까'와 "
+            "뭐든 골고루 잘 먹는 튼튼한 아기 하마 '냠냠'. "
+            "까까는 달콤한 간식만 먹고 채소는 쏙 빼놓다가, 하루 세 끼(아침·점심·저녁)를 골고루 먹는 "
+            "냠냠을 보며 건강한 식사를 배운다. "
+            "아침엔 밥과 국·달걀(든든하게), 점심엔 알록달록 채소와 고기(골고루), 저녁엔 따뜻한 밥과 생선(가볍게). "
+            "각 끼니마다 '이 음식은 우리 몸에서 무슨 일을 할까?'를 자연스럽게 알려 준다 "
+            "(채소는 몸을 튼튼하게, 밥은 힘을 주고, 물은 상쾌하게). "
+            "간식만 먹던 까까가 배가 아파 시무룩했다가, 세 끼를 골고루 먹으니 힘이 불끈 나는 걸 느낀다. "
+            "'하루 세 끼를 골고루 먹으면 튼튼하고 신나는 하루가 된다'는 식습관 교육 메시지 + 약속. "
+            "마지막에 '너는 오늘 무엇을 골고루 먹었어? 내일 식판에 어떤 음식을 담고 싶어?'라고 묻는 열린 결말. "
+            "1학년 눈높이, 먹는 의성어·의태어(냠냠, 아삭아삭, 후루룩, 꿀꺽)를 풍부하게."
+        ),
+        "world_setting": "three_meals_day",
+        "world_desc": (
+            "따뜻한 식사의 하루 — 아침 식탁의 밥과 국, 알록달록 점심 식판, 저녁의 생선과 밥, "
+            "부엌과 식탁, 건강한 음식들이 가득한 정겨운 풍경"
+        ),
+        "character_type": (
+            "NEW main characters for this special episode (NOT the chick and turtle): "
+            "main_1 Kkakka — a picky little fox cub with fluffy orange fur, a white belly, big cute eyes, "
+            "often pouting, gradually learning to enjoy healthy food; "
+            "main_2 Nyamnyam — a sturdy cheerful baby hippo with smooth grey skin, a big friendly mouth, "
+            "bright happy eyes, loves eating everything, healthy and strong. "
+            "CRITICAL: all characters must have cute ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "warm appetizing mealtime scenes with colorful healthy food, rounded adorable animal character "
+            "designs, clean fresh colors, storybook composition, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl23": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "하루",
+        "unit": "", "unit_title": "하루의 시작 (32-33p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "새로운 주인공의 특별편. 주인공은 아침잠이 아주 많은 꼬마 올빼미 '부엉'과 "
+            "일찍 일어나는 부지런한 아기 닭 '꼬꼬'. (밤에 활동하는 올빼미가 아침 일과를 배우는 반전 설정) "
+            "밤새 놀던 부엉이 아침이 되어도 못 일어나자, 꼬꼬가 '멋진 하루는 아침 일과에서 시작해!'라며 "
+            "자기만의 아침 일과를 하나씩 보여 준다: 눈뜨고 기지개(쭈욱), 세수하고 양치(뽀득), "
+            "옷 입기(척척), 아침밥 냠냠, 가방 챙기기(착!). "
+            "부엉도 꼬꼬를 따라 아침 일과를 만들어 보며 '아침을 잘 시작하니 하루가 상쾌해!'라고 느낀다. "
+            "둘의 아침 일과가 조금씩 다르다는 것도 자연스럽게 보여 준다(순서·방법이 달라도 괜찮아). "
+            "'하루를 기분 좋게 시작하려면 나만의 아침 일과가 필요하다'는 생활 습관 메시지. "
+            "마지막에 '너의 아침 일과는 어때? 하루를 어떻게 시작하고 싶어?'라고 묻는 열린 결말. "
+            "1학년 눈높이, 아침 의성어·의태어(쭈욱, 뽀득, 척척, 하암)를 풍부하게."
+        ),
+        "world_setting": "morning_routine_home",
+        "world_desc": (
+            "아침 햇살이 드는 아늑한 집 — 창으로 스미는 금빛 햇살, 이불과 침대, 세면대, "
+            "옷걸이, 아침 식탁, 현관의 가방, 상쾌한 아침 공기"
+        ),
+        "character_type": (
+            "NEW main characters for this special episode (NOT the chick and turtle): "
+            "main_1 Bueong — a sleepy fluffy baby owl with big round drowsy eyes, soft grey-brown feathers, "
+            "tiny tufts on the head, often yawning, cozy and adorable; "
+            "main_2 Kkokko — a bright energetic baby chick-rooster with fluffy yellow feathers, a tiny red comb, "
+            "wide-awake cheerful eyes, always tidy and ready. "
+            "CRITICAL: all characters must have cute ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "warm golden morning light home scenes, rounded adorable animal character designs, "
+            "clean fresh colors, storybook composition, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl24": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "하루",
+        "unit": "", "unit_title": "모두의 하루 (34-35p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "삐요와 토토 시리즈. 두 친구가 동물 마을을 돌아다니며 '저마다 다른 하루'를 보내는 이웃들을 만난다. "
+            "이른 새벽부터 빵을 굽는 곰 아저씨 제빵사(반죽 조물조물), 아이들을 가르치는 여우 선생님(또박또박), "
+            "우편물을 배달하는 토끼 우체부(콩콩), 아픈 동물을 돌보는 판다 의사 선생님(토닥토닥), "
+            "밤에 마을을 지키는 부엉이 야경꾼(부엉부엉). "
+            "각자 하는 일과 시간이 다르지만, 모두의 하루가 모여 마을이 따뜻하게 돌아간다는 것을 보여 준다. "
+            "'낮에 일하는 사람도, 밤에 일하는 사람도 다 있어서 우리 마을이 편안하구나!' "
+            "'사람마다(동물마다) 하루가 다르고, 저마다의 하루가 모두 소중하다'는 공동체 존중 메시지. "
+            "가족의 하루도 살짝 담는다(엄마·아빠·할머니의 서로 다른 하루). "
+            "마지막에 '네 주변 사람들은 어떤 하루를 보낼까? 누구의 하루가 궁금해?'라고 묻는 열린 결말. "
+            "1학년 눈높이, 다양한 직업 의성어·의태어(조물조물, 콩콩, 토닥토닥)를 풍부하게."
+        ),
+        "world_setting": "everyones_day_village",
+        "world_desc": (
+            "다 함께 살아가는 동물 마을 — 새벽 빵집, 학교, 우체국, 병원, 밤을 지키는 망루, "
+            "낮과 밤이 어우러진 정겨운 마을 풍경, 여러 직업의 동물들"
+        ),
+        "character_type": (
+            "the SAME two main characters as previous episodes, identical designs: "
+            "main_1 Ppiyo — a small fluffy round yellow chick with soft downy feathers, tiny orange "
+            "beak and orange feet, big sparkling black eyes, wearing a little red mini backpack, "
+            "short flappy wings, bright curious energetic expression; "
+            "main_2 Toto — a small green baby turtle with a rounded shell patterned with soft teal "
+            "and moss green hexagons, gentle calm eyes, wearing a small sky blue neckerchief, "
+            "friendly relaxed smile, sturdy tiny legs. "
+            "Supporting: various working animal neighbors (bear baker, fox teacher, rabbit postman, "
+            "panda doctor, owl night-watch). "
+            "CRITICAL: all characters must have ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "warm community village scenes showing different jobs day and night, rounded adorable animal "
+            "character designs, clean warm colors, storybook composition, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl22": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "하루",
+        "unit": "", "unit_title": "하루 저금통 (30-31p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "삐요와 토토 시리즈. 두 친구가 반짝이는 '하루 저금통'을 선물받는다. 이 저금통은 돈이 아니라 "
+            "'오늘 실천한 좋은 습관'을 넣으면 반짝이는 별 동전이 쌓이는 마법 저금통! "
+            "두 친구는 하루 동안 좋은 습관을 하나씩 실천하며 별 동전을 모은다: "
+            "① 아침에 스스로 일어나기(딩동!), ② 장난감 정리하기(차곡차곡), ③ 친구에게 고마워 인사하기(방긋), "
+            "④ 골고루 먹기(냠냠), ⑤ 잠자기 전 이 닦기(뽀득뽀득). "
+            "습관을 실천할 때마다 저금통에서 반짝! 별 동전이 떨어지는 소리가 난다. "
+            "처음엔 귀찮아하던 삐요도 저금통이 점점 반짝이자 뿌듯해하며 신나게 실천한다. "
+            "밤이 되어 저금통을 열어 보니 별 동전이 가득! '작은 습관도 매일 모으면 반짝이는 보물이 되는구나!' "
+            "'좋은 습관을 꾸준히 실천하면 나도 반짝반짝 자란다'는 습관 형성 메시지 + 실천 다짐(꼭꼭 약속해). "
+            "마지막에 '너는 오늘 어떤 좋은 습관을 저금했어? 내일은 어떤 습관을 모아 볼까?'라고 묻는 열린 결말. "
+            "1학년 눈높이, 실천 의성어·의태어(차곡차곡, 반짝, 뽀득뽀득)를 풍부하게."
+        ),
+        "world_setting": "habit_piggybank_day",
+        "world_desc": (
+            "따뜻한 하루의 집과 마을 — 반짝이는 별 동전이 쌓이는 마법 저금통, 정돈된 방, "
+            "아침 햇살 드는 부엌, 별이 뜨는 밤 창가"
+        ),
+        "character_type": (
+            "the SAME two main characters as previous episodes, identical designs: "
+            "main_1 Ppiyo — a small fluffy round yellow chick with soft downy feathers, tiny orange "
+            "beak and orange feet, big sparkling black eyes, wearing a little red mini backpack, "
+            "short flappy wings, bright curious energetic expression; "
+            "main_2 Toto — a small green baby turtle with a rounded shell patterned with soft teal "
+            "and moss green hexagons, gentle calm eyes, wearing a small sky blue neckerchief, "
+            "friendly relaxed smile, sturdy tiny legs. "
+            "A magical piggybank that glows with collected star coins. "
+            "CRITICAL: all characters must have ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "warm cozy home-and-habit scenes with sparkling star-coin effects, rounded adorable animal "
+            "character designs, clean warm colors, storybook composition, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl17": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "하루",
+        "unit": "", "unit_title": "하늘의 하루 (22-23p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "삐요와 토토 시리즈. 두 친구가 언덕에서 '하루 동안 하늘이 어떻게 변하는지' 지켜보는 하루 관찰 이야기. "
+            "이른 아침(분홍빛 노을과 옅은 안개)→한낮(새파란 하늘, 뭉게구름, 눈부신 해)→저녁(주황빛 노을)→"
+            "밤(짙은 남색 하늘, 반짝이는 별과 둥근 달)으로 하늘색이 시간에 따라 변하는 것을 관찰한다. "
+            "각 시간마다 '지금 하늘은 무슨 색일까? 무엇이 보일까?'를 묻고 색을 이야기한다. "
+            "낮 하늘은 밝고 포근한 인상파 그림(모네풍 밝은 붓터치)처럼, 밤 하늘은 별이 소용돌이치는 그림(고흐 '별이 빛나는 밤'풍)처럼 "
+            "표현해 명화 감상 요소를 자연스럽게 녹인다. "
+            "밤이 되자 '해와 달이 된 오누이' 이야기처럼 해와 달이 하늘에서 번갈아 뜨고 진다는 것을 깨닫는다. "
+            "'하늘은 하루 종일 색을 바꾸며 그림을 그린다'는 감성적 메시지. "
+            "마지막에 '너는 오늘 하늘에서 어떤 색을 보았어? 낮과 밤 중 어떤 하늘이 더 좋아?'라고 시청자에게 묻는 열린 결말. "
+            "1학년 눈높이, 색과 빛을 표현하는 의성어·의태어(반짝반짝, 뭉게뭉게, 붉으락)를 풍부하게."
+        ),
+        "world_setting": "sky_all_day",
+        "world_desc": (
+            "하루 동안 색이 변하는 하늘 아래 언덕 — 분홍빛 새벽하늘, 새파란 낮 하늘과 하얀 뭉게구름, "
+            "주황빛 저녁노을, 별이 소용돌이치는 짙은 남색 밤하늘과 둥근 달"
+        ),
+        "character_type": (
+            "the SAME two main characters as previous episodes, identical designs: "
+            "main_1 Ppiyo — a small fluffy round yellow chick with soft downy feathers, tiny orange "
+            "beak and orange feet, big sparkling black eyes, wearing a little red mini backpack, "
+            "short flappy wings, bright curious energetic expression; "
+            "main_2 Toto — a small green baby turtle with a rounded shell patterned with soft teal "
+            "and moss green hexagons, gentle calm eyes, wearing a small sky blue neckerchief, "
+            "friendly relaxed smile, sturdy tiny legs. "
+            "CRITICAL: all characters must have ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "expressive painterly skies inspired by impressionism (Monet daytime, Van Gogh Starry Night at "
+            "night), rounded adorable animal character designs, clean luminous colors, "
+            "storybook composition, inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl18": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "하루",
+        "unit": "", "unit_title": "달팽이의 하루 (24-25p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "새로운 주인공의 특별편. 주인공은 세상에서 제일 느긋한 꼬마 달팽이 '느리'와 "
+            "부지런하고 재빠른 개미 친구 '바지런'. "
+            "느리의 아주 특별한 하루를 따라간다: 아침 이슬 마시기, 촉촉한 나뭇잎 위를 스르륵 기어가기, "
+            "빗방울 피해 버섯 아래 쉬기, 무지개 보기, 그리고 밤에 별을 보며 잠들기. "
+            "바지런은 '왜 이렇게 느려? 빨리빨리!' 하지만, 느리는 천천히 가기에 아침 이슬의 반짝임도, "
+            "작은 꽃의 향기도, 무지개의 일곱 색도 다 볼 수 있다는 걸 보여 준다. "
+            "결국 바지런도 느리 곁에서 천천히 걸으며 '느리게 가니까 안 보이던 게 보이네!'라고 깨닫는다. "
+            "'느려도 괜찮아, 천천히 가면 더 많이 보고 느낄 수 있어'라는 따뜻한 메시지 (다름의 존중). "
+            "'달팽이의 하루' 동요처럼 스르륵스르륵 리듬감 있는 반복 표현을 살린다. "
+            "마지막에 '너의 하루는 어떤 속도였어? 천천히 걸으며 무엇을 보고 싶어?'라고 묻는 열린 결말. "
+            "1학년 눈높이, 느긋한 의태어(스르륵, 살금살금, 느릿느릿)를 풍부하게."
+        ),
+        "world_setting": "snail_slow_day_garden",
+        "world_desc": (
+            "이슬 맺힌 아침 정원 — 촉촉한 초록 나뭇잎과 이슬방울, 알록달록 꽃, 빨간 버섯, "
+            "비 온 뒤 무지개, 반딧불과 별이 뜨는 밤 풀숲"
+        ),
+        "character_type": (
+            "NEW main characters for this special episode (NOT the chick and turtle): "
+            "main_1 Neuri — a tiny adorable snail with a glossy swirled pastel-pink and cream shell, "
+            "gentle sleepy eyes, a soft smile, tiny antennae with round tips, slow and serene; "
+            "main_2 Bajireon — a small energetic red ant with big bright eyes, thin legs always in motion, "
+            "a tiny leaf backpack, quick and cheerful. "
+            "CRITICAL: all characters must have cute ANIMAL/insect faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "dewy close-up garden scenes with sparkling water droplets and macro nature detail, "
+            "rounded adorable tiny creature designs, fresh luminous colors, gentle morning light, "
+            "storybook composition, inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl19": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
+        "unit": "", "unit_title": "세상을 바꿀 초능력이 생긴다면 (38-39p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "삐요와 토토 시리즈. 어느 날 하늘에서 반짝이는 별똥별 조각이 떨어지고, 그것을 만진 삐요와 토토에게 "
+            "각자 특별한 '초능력'이 생긴다! 두 친구는 동물 마을의 작은 슈퍼히어로가 된다. "
+            "삐요의 초능력은 '무엇이든 빠르게 도와주는 번개 날개'(슝!), 토토의 초능력은 '무엇이든 튼튼하게 지키는 바위 등껍질'(꽝!). "
+            "두 친구는 초능력으로 마을의 곤란한 일들을 하나씩 돕는다: "
+            "① 나무에 걸린 아기 새를 삐요가 번개처럼 날아 구하고, ② 무너지려는 다리를 토토가 등껍질로 받치고, "
+            "③ 홍수로 떠내려가는 물건을 둘이 힘을 합쳐 구한다. "
+            "하지만 초능력을 뽐내다 실수도 한다(너무 빨라서 부딪히고, 너무 세서 망가뜨림) — "
+            "'힘은 남을 돕는 데 써야 멋진 거야'라는 것을 배운다. "
+            "'세상을 바꾸는 건 대단한 초능력이 아니라, 남을 돕는 따뜻한 마음'이라는 메시지. "
+            "마지막에 별똥별 힘이 사라져도 서로 돕는 마음은 그대로임을 깨닫고, "
+            "'너에게 초능력이 생긴다면 무엇으로 세상을 도울래?'라고 시청자에게 묻는 열린 결말. "
+            "1학년 눈높이, 신나는 액션 의성어(슝, 꽝, 번쩍)를 풍부하게."
+        ),
+        "world_setting": "animal_superhero_town",
+        "world_desc": (
+            "동물 마을 — 아기자기한 집들과 나무, 개울과 다리, 별똥별이 떨어지는 밤하늘, "
+            "삐요·토토가 슈퍼히어로 망토(작은 별무늬)를 두른 활기찬 마을 풍경"
+        ),
+        "character_type": (
+            "the SAME two main characters, identical designs, but each wearing a tiny star-patterned "
+            "superhero cape: main_1 Ppiyo — a small fluffy round yellow chick with soft downy feathers, "
+            "tiny orange beak and orange feet, big sparkling black eyes, wearing a little red mini backpack "
+            "AND a small red star cape, short flappy wings glowing with lightning, bright energetic expression; "
+            "main_2 Toto — a small green baby turtle with a rounded shell patterned with soft teal and moss "
+            "green hexagons, gentle calm eyes, sky blue neckerchief AND a small blue star cape, sturdy legs. "
+            "CRITICAL: all characters must have ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache with "
+            "dynamic comic-style action motion lines and sparkle effects, rounded adorable animal superhero "
+            "designs, vivid bright colors, energetic heroic composition, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl20": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "하루",
+        "unit": "", "unit_title": "건강한 하루 (26-27p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "새로운 주인공의 특별편. 주인공은 활력이 넘치는 꼬마 강아지 '팔팔이'와 "
+            "달콤한 간식과 낮잠을 좋아하는 느긋한 아기 판다 '뒹굴'. "
+            "뒹굴이 자꾸 축 처지고 힘이 없자, 팔팔이가 '건강한 하루'를 함께 보내자고 제안한다. "
+            "하루 동안 규칙적인 운동을 하나씩 실천한다: 아침 기지개와 줄넘기(콩콩), 점심 뒤 산책(뚜벅뚜벅), "
+            "친구들과 공놀이(통통), 저녁에 스트레칭(쭉쭉). "
+            "운동할 때마다 뒹굴의 몸이 점점 가벼워지고 기분이 좋아지는 것을 보여 준다 "
+            "(운동하면 힘이 나고 기분이 좋아진다는 것). "
+            "처음엔 힘들어하던 뒹굴도 '몸을 움직이니까 정말 상쾌해!'라며 활짝 웃는다. "
+            "'매일 조금씩 몸을 움직이면 건강하고 즐거운 하루가 된다'는 메시지, 운동 습관 형성. "
+            "마지막에 '너는 오늘 어떤 운동을 했어? 내일은 어떤 운동을 해볼까?'라고 묻는 열린 결말. "
+            "1학년 눈높이, 활기찬 운동 의성어·의태어(콩콩, 쭉쭉, 통통, 헉헉)를 풍부하게."
+        ),
+        "world_setting": "healthy_day_playground",
+        "world_desc": (
+            "밝고 활기찬 하루 — 아침 햇살 드는 마당, 줄넘기와 공, 초록 공원 산책길, "
+            "친구들과 뛰노는 놀이터, 저녁 스트레칭하는 아늑한 방"
+        ),
+        "character_type": (
+            "NEW main characters for this special episode (NOT the chick and turtle): "
+            "main_1 Palpali — a lively little puppy with fluffy cream-and-brown fur, floppy ears, "
+            "a big bright grin, a red sporty headband, always bouncing with energy; "
+            "main_2 Dwinggul — a chubby sleepy baby panda with soft black-and-white fur, droopy happy eyes, "
+            "a round tummy, cozy and relaxed, gradually becoming more energetic. "
+            "CRITICAL: all characters must have cute ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "energetic sunny sport-and-play scenes with motion lines, rounded adorable animal character "
+            "designs, vivid fresh colors, storybook composition, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl21": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "하루",
+        "unit": "", "unit_title": "마음의 하루 (28-29p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "새로운 주인공의 특별편. 주인공은 마음을 색으로 느끼는 신기한 아기 카멜레온 '무지'와 "
+            "다정한 곰 친구 '포근'. 무지는 기분에 따라 몸 색깔이 변한다. "
+            "무지의 하루 동안 여러 마음이 색으로 나타난다: 아침에 설렐 땐 노란색, "
+            "친구와 다퉈 속상할 땐 파란색, 무서울 땐 보라색, 신나게 놀 땐 초록색, "
+            "그리고 포근에게 위로받아 행복할 땐 따뜻한 분홍색. "
+            "포근은 무지의 여러 색(마음)을 '어떤 색이든 다 소중한 네 마음이야'라며 있는 그대로 받아 준다. "
+            "무지는 '슬픈 파란색도, 무서운 보라색도 내 마음이구나. 마음마다 색이 다 달라서 예뻐!'라고 깨닫는다. "
+            "'하루 동안 여러 가지 마음이 드는 건 자연스러운 일, 모든 마음(색)은 다 소중하다'는 정서 교육 메시지. "
+            "마지막에 '너의 오늘 마음은 무슨 색이야? 그 색으로 그림을 그려 볼까?'라고 묻는 열린 결말. "
+            "1학년 눈높이, 색과 감정을 잇는 부드러운 표현을 풍부하게."
+        ),
+        "world_setting": "color_emotion_day",
+        "world_desc": (
+            "마음이 색으로 물드는 하루 — 파스텔 색이 번지는 하늘과 들판, 색색의 꽃과 나비, "
+            "무지의 몸 색이 노랑·파랑·보라·초록·분홍으로 변하는 감성적인 풍경"
+        ),
+        "character_type": (
+            "NEW main characters for this special episode (NOT the chick and turtle): "
+            "main_1 Muji — a cute baby chameleon whose body color changes with emotion (yellow when excited, "
+            "blue when sad, purple when scared, green when playful, pink when happy), big round expressive eyes, "
+            "a curly tail, gentle friendly face; "
+            "main_2 Pogeun — a soft warm-hearted honey-brown bear with a cozy scarf, gentle caring eyes, "
+            "a comforting smile. "
+            "CRITICAL: all characters must have cute ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache with "
+            "expressive color-mood washes reflecting emotions, rounded adorable animal character designs, "
+            "gentle luminous pastel colors, storybook composition, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl14": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
+        "unit": "", "unit_title": "새로운 동물이 나타난다면 (32-33p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "삐요와 토토 시리즈. 비 오는 날 다락방에서 낡은 그림책을 발견한 두 친구. "
+            "책 속에는 옛날 사람들이 상상한 동물들이 그려져 있다 — 사자 몸에 뿔이 달린 '해태', "
+            "사자 몸에 사람 얼굴을 한 '스핑크스'. "
+            "'옛날 사람들도 동물을 합쳐서 새로운 동물을 상상했구나!' 깨달은 두 친구는 "
+            "'우리만의 새로운 동물 만들기' 놀이를 시작한다: "
+            "① 코끼리의 긴 코 + 토끼의 큰 귀 + 오리의 물갈퀴 = '코토리' (물가에서 코로 물 뿌리며 노는 동물), "
+            "② 기린의 긴 목 + 펭귄의 턱시도 몸 = '기링귄' (높은 나뭇잎도 먹고 얼음에서 미끄럼도 타는 동물), "
+            "각 조합마다 '어떤 특징을 가져올까? 이 동물은 무엇을 잘할까? 어디에 살까?'를 묻고 상상한다. "
+            "그날 밤 꿈속에서 두 친구가 만든 상상 동물들이 진짜로 나타나 함께 노는 판타지 장면. "
+            "'동물의 특징을 합치면 세상에 없는 새 친구가 태어난다'는 상상의 즐거움이 핵심. "
+            "마지막에 '너라면 어떤 동물과 어떤 동물을 합쳐 볼래? 새 동물의 이름도 지어 봐!'라고 "
+            "시청자에게 묻는 열린 결말. 1학년 눈높이의 짧은 문장과 의성어·의태어를 풍부하게."
+        ),
+        "world_setting": "imaginary_animal_workshop",
+        "world_desc": (
+            "비 오는 날의 아늑한 다락방 — 낡은 그림책과 호롱불 같은 스탠드, 창밖의 빗방울, "
+            "꿈 장면에서는 파스텔 구름 위 상상 동물들의 놀이터, 무지개 미끄럼틀과 솜사탕 나무"
+        ),
+        "character_type": (
+            "the SAME two main characters as previous episodes, identical designs: "
+            "main_1 Ppiyo — a small fluffy round yellow chick with soft downy feathers, tiny orange "
+            "beak and orange feet, big sparkling black eyes, wearing a little red mini backpack, "
+            "short flappy wings, bright curious energetic expression; "
+            "main_2 Toto — a small green baby turtle with a rounded shell patterned with soft teal "
+            "and moss green hexagons, gentle calm eyes, wearing a small sky blue neckerchief, "
+            "friendly relaxed smile, sturdy tiny legs. "
+            "Imaginary combined animals: Kotori — an elephant-trunked bunny-eared duck-footed cute creature; "
+            "Giringuin — a long giraffe-necked penguin-bodied creature. All cute, rounded, friendly. "
+            "CRITICAL: all characters must have ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "cozy rainy-day attic scenes transitioning to dreamy pastel cloud world, "
+            "rounded adorable animal character designs, gentle lighting, "
+            "storybook composition with clear focal points, "
+            "NEUTRAL to COOL color temperature with no yellow-amber cast, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl15": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
+        "unit": "", "unit_title": "비눗방울이 그림이 된다면 (34-35p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "새로운 주인공의 특별편 (삐요·토토와 다른 독립 이야기). "
+            "주인공은 물놀이라면 자다가도 벌떡 일어나는 장난꾸러기 아기 수달 '보글이'와 "
+            "그림 그리기를 좋아하는 꼼꼼한 꼬마 너구리 화가 '방울이'. "
+            "맑은 오후 개울가 마당에서 비눗방울 놀이를 하던 두 친구. "
+            "방울이가 물감을 섞은 비눗물을 만들자, 후! 불 때마다 알록달록 색깔 비눗방울이 떠오른다. "
+            "그런데 신기한 일이! 비눗방울이 종이에 톡 하고 터질 때마다 동글동글 예쁜 그림 자국이 남는다. "
+            "① 빨간 방울 하나가 터지면 동그라미 무늬, ② 방울 여러 개를 겹쳐 터뜨리면 꽃 모양, "
+            "③ 파란 방울을 줄줄이 터뜨리면 뭉게구름과 파도가 된다. "
+            "두 친구는 비눗방울 그림으로 '상상의 세계'를 만든다 — 비눗방울 꽃밭, 비눗방울 바다, "
+            "비눗방울 무지개 성. 그림이 완성되자 마법처럼 그림 속 세계로 퐁! 하고 들어가 "
+            "비눗방울 나라를 여행하는 판타지 장면 (동글동글 투명한 성, 방울 물고기, 무지개 다리). "
+            "안전 요소도 살짝: '비눗물은 눈과 입에 닿지 않게 조심!' 한 마디. "
+            "'물감과 비눗방울이 만나면 세상에 하나뿐인 그림이 된다'는 미술 표현의 즐거움이 핵심. "
+            "마지막에 '너라면 비눗방울로 어떤 세계를 그리고 싶어?'라고 묻는 열린 결말. "
+            "1학년 눈높이, 의성어·의태어(퐁퐁, 동동, 톡!, 후!) 풍부하게."
+        ),
+        "world_setting": "bubble_painting_world",
+        "world_desc": (
+            "햇살 좋은 마당과 하얀 도화지 — 알록달록 물감 비눗방울들, 방울이 터져 생긴 동그라미 무늬들, "
+            "판타지 장면에서는 투명하고 영롱한 비눗방울 나라: 방울 성, 방울 물고기, 무지개 다리, "
+            "빛이 통과하는 반투명 파스텔 색감"
+        ),
+        "character_type": (
+            "NEW main characters for this special episode (NOT the chick and turtle): "
+            "main_1 Bogeuli — a playful baby otter with sleek chocolate-brown fur, a cream belly, "
+            "round sparkling eyes, tiny webbed paws, wearing a yellow rubber-duck float ring around his waist, "
+            "mischievous joyful grin; "
+            "main_2 Bangwuli — a careful little raccoon painter with soft grey fur, a black eye-mask pattern, "
+            "a fluffy striped tail, wearing a paint-splattered mint apron and holding a small brush, "
+            "thoughtful gentle smile. "
+            "CRITICAL: all characters must have ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache "
+            "with translucent iridescent bubble textures and playful paint-splash circle motifs, "
+            "rounded adorable animal character designs, luminous clean colors, "
+            "storybook composition with clear focal points, "
+            "NEUTRAL to COOL color temperature with no yellow-amber cast, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
+    "bsl16": {
+        "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
+        "unit": "", "unit_title": "물건이 악기가 된다면 (36-37p)", "sub_unit": "함께 골라요",
+        "achievement_standard": "",
+        "story_direction": (
+            "새로운 주인공의 특별편 (삐요·토토와 다른 독립 이야기). "
+            "주인공은 뭐든 두드리며 리듬을 타는 꼬마 다람쥐 '통통이'와 "
+            "수줍지만 노래를 잘하는 아기 곰 '두리'. "
+            "숲속 마을 음악회가 열리는 날, 그런데 악기 창고가 텅 비어 있다! "
+            "악기가 없어 모두 속상해할 때, 통통이가 실수로 냄비를 두드리자 '둥둥!' 멋진 소리가 난다. "
+            "'물건도 악기가 될 수 있어!' 두 친구는 마을 곳곳에서 소리 나는 물건을 찾아 모으고, "
+            "수줍던 두리도 물건 악기 반주에 용기를 내어 노래를 부르게 된다(성장 요소): "
+            "① 부엌의 냄비와 주걱 — 둥둥 북소리, ② 유리병에 물을 다르게 담아 — 팅팅 실로폰 소리 "
+            "(물이 많으면 낮은 소리, 적으면 높은 소리라는 발견!), ③ 빨래판과 나무 막대 — 드르륵 기타 소리, "
+            "④ 상자와 뚜껑 — 쿵쿵 짝짝 리듬. "
+            "물건마다 '무슨 소리가 날까?' 먼저 상상해 보고 두드려 확인하는 재미를 반복. "
+            "친구들과 '물건 악기 밴드'를 만들어 다 함께 신나는 음악회를 연다 — "
+            "둥둥! 팅팅! 드르륵! 쿵쿵 짝짝! 리듬감 있는 의성어의 향연. "
+            "'귀 기울이면 세상 모든 물건이 악기가 된다'는 메시지. "
+            "마지막에 '네 방에 있는 물건은 어떤 소리가 날까? 두드려서 상상해 봐!'라고 묻는 열린 결말. "
+            "1학년 눈높이, 소리 의성어를 최대한 풍부하고 리듬감 있게."
+        ),
+        "world_setting": "found_object_orchestra",
+        "world_desc": (
+            "숲속 마을의 야외 음악회 무대 — 나무 그루터기 무대, 색색 깃발 장식, "
+            "냄비·유리병·빨래판·상자로 만든 알록달록 물건 악기들, 반딧불이 조명이 켜지는 저녁 음악회"
+        ),
+        "character_type": (
+            "NEW main characters for this special episode (NOT the chick and turtle): "
+            "main_1 Tongtongi — a small energetic squirrel with fluffy russet fur, a big bushy tail, "
+            "bright shiny eyes, holding two little wooden drumsticks, wearing a tiny red bandana, "
+            "always bouncing to a rhythm; "
+            "main_2 Duri — a shy round baby bear with soft honey-brown fur, small ears, "
+            "warm bashful eyes, wearing a cozy striped scarf, gentle sweet expression. "
+            "Supporting: cheerful village animal friends joining the found-object band. "
+            "CRITICAL: all characters must have ANIMAL faces — NOT human faces."
+        ),
+        "art_style_en": (
+            "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+            "lively village concert scenes with musical notes and rhythm motifs floating in the air, "
+            "rounded adorable animal character designs, warm evening festival lights kept clean and bright, "
+            "storybook composition with clear focal points, "
+            "NEUTRAL to COOL color temperature with no yellow-amber cast, "
+            "inspired by modern Korean picture books for 7-year-olds"
+        ),
+    },
     "bsl13": {
         "grade": 1, "semester": 2, "subject": "통합교과", "series": "상상",
         "unit": "", "unit_title": "여기저기에서 본다면 (30-31p)", "sub_unit": "함께 골라요",
@@ -883,12 +1445,49 @@ color_mood는 아래 중 선택:
 - quiz_questions의 각 문제에 related_slide 필드를 추가하세요.
   해당 문제와 가장 관련 있는 슬라이드 번호(1~10)를 적어서,
   퀴즈 화면에서 해당 장면 이미지를 함께 보여줄 수 있게 하세요.
+- quiz_questions는 3문항이며 유형을 배분하세요: 사실확인 1 + 추론 1 + 적용/정서 1.
+  answer는 20자 이내의 완결된 1문장으로 쓰세요.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[F2. 활동지 데이터(activity_sheet v2) 생성]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+독후 활동지에 그대로 렌더링될 데이터입니다. 이야기를 이해한 당신이 직접 만들어야
+조사·맞춤법·화자·라벨이 정확합니다. 아래 필드를 activity_sheet 안에 모두 채우세요.
+
+[공통 원칙]
+- 초등학교 1학년이 읽고 풀 수 있는 쉬운 어휘. 조사(은/는, 이/가, 을/를)와 맞춤법을 정확히.
+- 모든 문장은 이야기 실제 내용에 근거해야 하며, 없는 사실을 지어내지 마세요.
+- 힌트에는 정답(정답 낱말·정답 대사)을 절대 노출하지 마세요.
+
+[ox_items] 3개 — {{"text": "이야기 속 사실 문장", "answer": true 또는 false}}
+- O·X 비율은 2:1 또는 1:2 (전부 O이거나 전부 X는 금지).
+- 거짓(false) 문항은 자연스럽고 비문 없는 문장을 직접 새로 쓰세요. 같은 인물 이름을
+  한 문장에 두 번 넣지 마세요(예: "토토와 토토는"은 금지).
+
+[sequence_items] 3개 — {{"label": "A", "text": "이야기 속 사건 1문장", "order": 정답순서(1~3)}}
+- 이야기의 초반·중반·후반에서 각 1문장씩. label은 A·B·C, order는 실제 일어난 순서.
+
+[speech_bubbles] 2~3개 — {{"speaker": "캐릭터 실명", "situation": "대사 직전 상황 1문장", "hint": "감정·주제 힌트"}}
+- speaker는 반드시 등장인물의 실제 이름. situation은 그 대사를 하기 직전의 상황 서술.
+- hint는 정답 대사를 노출하지 말고 감정이나 주제만 알려주세요.
+
+[fill_blanks] 2개 — {{"sentence": "___ 빈칸 1~2개가 든 완성형 문장", "example": "보기 낱말", "answer": "정답"}}
+- 완결된 문장 안에 ___ 로 1~2개의 빈칸. example은 아이에게 보여줄 보기 낱말, answer는 정답.
+
+[draw] — {{"prompt": "이야기와 연계된 그리기 발문", "field1_label": "기입란1 라벨", "field2_label": "기입란2 라벨"}}
+- field 라벨은 반드시 prompt 주제와 일치시키세요. (발문이 음식이면 "🍽 음식 이름",
+  동물이면 "🐾 동물 이름", 초능력이면 "🏷 초능력 이름"처럼.)
+- 예: {{"prompt":"내가 갖고 싶은 초능력을 그려보세요!","field1_label":"🏷 초능력 이름","field2_label":"💬 이 힘으로 하고 싶은 일"}}
+
+[wordplay] — {{"anagram_words": ["핵심 낱말 4개"], "consonant_words": ["초성퀴즈 낱말 3개"]}}
+- anagram_words: 3~4글자 핵심 낱말 4개(캐릭터 이름은 최대 1개까지만).
+- consonant_words: 초성 퀴즈에 쓸 3~4글자 낱말 3개.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [G. 출력 JSON 구조]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-{{"meta":{{"grade":{grade},"semester":{ep_info.get('semester',1)},"subject":"{subject}","series":"{series}","unit":"{unit}","unit_title":"{ep_info['unit_title']}","sub_unit":"{ep_info['sub_unit']}","story_title":"동화 제목","youtube_title":"{yt_title_prefix} | 동화 제목","characters":{{"main_1":{{"name":"주인공1 이름","gender":"boy","personality":"성격 한국어","appearance_kr":"한국어 외형 묘사","appearance_en":"English appearance description"}},"main_2":{{"name":"주인공2 이름","gender":"girl","personality":"성격 한국어","appearance_kr":"한국어 외형 묘사","appearance_en":"English appearance description"}},"supporting":{{"teacher":{{"name":"조력자 이름","appearance_en":"English appearance description"}}}}}},"color_palette":{{"primary":"#hex","secondary":"#hex","accent":"#hex","mood":"색감 분위기 한국어 설명"}}}},"slides":[{{"slide_number":0,"type":"cover","composition":"book_cover","color_mood":"cover","text":"제목","image_prompt":"(규칙 C의 7가지 요소를 모두 포함한 영어 프롬프트)","tts_segments":[]}},{{"slide_number":1,"type":"story","composition":"wide_establishing","color_mood":"bright_cheerful","text":"본문","image_prompt":"(규칙 C의 7가지 요소를 모두 포함한 영어 프롬프트)","tts_segments":[{{"speaker":"narrator","voice":"narrator","text":"내레이션","emotion":"감정 지시"}},{{"speaker":"child_boy","voice":"child_boy","text":"대사","emotion":"감정 지시"}}]}},{{"slide_number":2,"type":"story","composition":"(다른 구도)","color_mood":"(적절한 분위기)","text":"...","image_prompt":"...","tts_segments":[...]}},("... 이야기 전개에 맞춰 slide_number 3~N까지 본문 슬라이드를 6~13장 자유롭게 생성하세요. 총 8~15장. ..."),{{"slide_number":"(마지막 번호)","type":"ending","composition":"group_scene","color_mood":"happy_ending","text":"— 끝 —\\n마무리 메시지","image_prompt":"(규칙 C의 7가지 요소를 모두 포함한 영어 프롬프트)","tts_segments":[{{"speaker":"narrator","voice":"narrator","text":"마무리","emotion":"warm, gentle closing"}}]}}],"shorts_strategy":{{"type":"(behavior_quiz/cliffhanger/consequence/before_after/emotion_zoom 중 선택)","type_name":"유형 이름","reason":"이 유형을 선택한 이유","slides_to_use":[5,3,2],"title":"쇼츠 제목","hook_line":"훅 대사 한 문장","cutoff_slide":5,"result_slide":5,"cause_slides":[2,3]}},"thumbnail":{{"text":"3~5글자 자극적 텍스트","slide_number":5,"emotion":"(sad/angry/surprised/worried/happy)","sub_text":"{sub_text_label}"}},"activity_sheet":{{"quiz_questions":[{{"question":"질문1","answer":"답1","related_slide":3}},{{"question":"질문2","answer":"답2","related_slide":7}},{{"question":"질문3","answer":"답3","related_slide":10}}]}}}}
+{{"meta":{{"grade":{grade},"semester":{ep_info.get('semester',1)},"subject":"{subject}","series":"{series}","unit":"{unit}","unit_title":"{ep_info['unit_title']}","sub_unit":"{ep_info['sub_unit']}","story_title":"동화 제목","youtube_title":"{yt_title_prefix} | 동화 제목","characters":{{"main_1":{{"name":"주인공1 이름","gender":"boy","personality":"성격 한국어","appearance_kr":"한국어 외형 묘사","appearance_en":"English appearance description"}},"main_2":{{"name":"주인공2 이름","gender":"girl","personality":"성격 한국어","appearance_kr":"한국어 외형 묘사","appearance_en":"English appearance description"}},"supporting":{{"teacher":{{"name":"조력자 이름","appearance_en":"English appearance description"}}}}}},"color_palette":{{"primary":"#hex","secondary":"#hex","accent":"#hex","mood":"색감 분위기 한국어 설명"}}}},"slides":[{{"slide_number":0,"type":"cover","composition":"book_cover","color_mood":"cover","text":"제목","image_prompt":"(규칙 C의 7가지 요소를 모두 포함한 영어 프롬프트)","tts_segments":[]}},{{"slide_number":1,"type":"story","composition":"wide_establishing","color_mood":"bright_cheerful","text":"본문","image_prompt":"(규칙 C의 7가지 요소를 모두 포함한 영어 프롬프트)","tts_segments":[{{"speaker":"narrator","voice":"narrator","text":"내레이션","emotion":"감정 지시"}},{{"speaker":"child_boy","voice":"child_boy","text":"대사","emotion":"감정 지시"}}]}},{{"slide_number":2,"type":"story","composition":"(다른 구도)","color_mood":"(적절한 분위기)","text":"...","image_prompt":"...","tts_segments":[...]}},("... 이야기 전개에 맞춰 slide_number 3~N까지 본문 슬라이드를 6~13장 자유롭게 생성하세요. 총 8~15장. ..."),{{"slide_number":"(마지막 번호)","type":"ending","composition":"group_scene","color_mood":"happy_ending","text":"— 끝 —\\n마무리 메시지","image_prompt":"(규칙 C의 7가지 요소를 모두 포함한 영어 프롬프트)","tts_segments":[{{"speaker":"narrator","voice":"narrator","text":"마무리","emotion":"warm, gentle closing"}}]}}],"shorts_strategy":{{"type":"(behavior_quiz/cliffhanger/consequence/before_after/emotion_zoom 중 선택)","type_name":"유형 이름","reason":"이 유형을 선택한 이유","slides_to_use":[5,3,2],"title":"쇼츠 제목","hook_line":"훅 대사 한 문장","cutoff_slide":5,"result_slide":5,"cause_slides":[2,3]}},"thumbnail":{{"text":"3~5글자 자극적 텍스트","slide_number":5,"emotion":"(sad/angry/surprised/worried/happy)","sub_text":"{sub_text_label}"}},"activity_sheet":{{"quiz_questions":[{{"question":"사실확인 질문","answer":"20자 이내 답","related_slide":3}},{{"question":"추론 질문","answer":"20자 이내 답","related_slide":7}},{{"question":"적용/정서 질문","answer":"20자 이내 답","related_slide":10}}],"ox_items":[{{"text":"이야기 속 사실 문장","answer":true}},{{"text":"이야기 속 사실 문장","answer":true}},{{"text":"틀린 사실 문장(자연스러운 비문 없는 문장)","answer":false}}],"sequence_items":[{{"label":"A","text":"초반 사건 1문장","order":1}},{{"label":"B","text":"중반 사건 1문장","order":2}},{{"label":"C","text":"후반 사건 1문장","order":3}}],"speech_bubbles":[{{"speaker":"캐릭터 실명","situation":"대사 직전 상황 1문장","hint":"감정·주제 힌트(정답 대사 미노출)"}},{{"speaker":"캐릭터 실명","situation":"대사 직전 상황 1문장","hint":"감정·주제 힌트"}}],"fill_blanks":[{{"sentence":"___ 빈칸이 든 완성형 문장","example":"보기 낱말","answer":"정답"}},{{"sentence":"___ 빈칸이 든 완성형 문장","example":"보기 낱말","answer":"정답"}}],"draw":{{"prompt":"이야기 연계 그리기 발문","field1_label":"발문 주제에 맞는 라벨1","field2_label":"발문 주제에 맞는 라벨2"}},"wordplay":{{"anagram_words":["핵심낱말1","핵심낱말2","핵심낱말3","핵심낱말4"],"consonant_words":["낱말1","낱말2","낱말3"]}}}}}}
 
 위 JSON 구조의 모든 "..." 부분을 실제 내용으로 채워서 완성된 JSON을 출력하세요.
 모든 슬라이드에 대해 composition, color_mood, image_prompt를 완전하게 작성하세요.

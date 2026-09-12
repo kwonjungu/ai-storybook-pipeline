@@ -216,7 +216,7 @@ ACTIVITY_POOL = {
 # 랜덤 선택 알고리즘
 # ══════════════════════════════════════════════════════════════════════════
 
-def select_activities(grade: int, seed=None) -> dict:
+def select_activities(grade: int, seed=None, story: dict | None = None) -> dict:
     """
     카테고리별 가중 랜덤으로 활동 선택.
     Returns: {p1_left, p1_right, p2_top, p2_bottom, seed_used}
@@ -225,11 +225,19 @@ def select_activities(grade: int, seed=None) -> dict:
     actual_seed = seed if seed is not None else rng.randint(0, 999999)
     rng = random.Random(actual_seed)
 
+    # v2 fill_blanks가 있으면 fill_blank를 1학년에게도 개방 (보기 상자 제공으로 난도 완화)
+    fb_v2 = bool((story or {}).get("activity_sheet", {}).get("fill_blanks"))
+
+    def _grade_ok(aid: str, meta: dict) -> bool:
+        if aid == "fill_blank" and fb_v2:
+            return True
+        return meta["grade_min"] <= grade <= meta["grade_max"]
+
     def weighted_pick(category: str) -> str:
         pool = [
             aid for aid, meta in ACTIVITY_POOL.items()
             if meta["category"] == category
-            and meta["grade_min"] <= grade <= meta["grade_max"]
+            and _grade_ok(aid, meta)
         ]
         if not pool:
             # grade 필터 실패 시 카테고리 전체에서 선택
@@ -309,6 +317,34 @@ def species_to_emoji(species: str) -> str:
     for kw, emoji in _SPECIES_EMOJI.items():
         if kw in low:
             return emoji
+    return ""
+
+
+# 한국어 동물/종 명사 (personality 등에서 종을 복원할 때 사용)
+_KO_SPECIES = [
+    "병아리", "거북", "달팽이", "개미", "강아지", "판다", "카멜레온", "곰",
+    "올빼미", "부엉이", "닭", "여우", "하마", "토끼", "다람쥐", "고양이",
+    "사자", "호랑이", "코끼리", "기린", "펭귄", "오리", "수달", "너구리",
+    "고슴도치", "사슴", "돼지", "양", "말", "소", "쥐", "새", "물고기",
+    "개구리", "나비", "벌", "원숭이", "코알라", "악어", "뱀",
+]
+
+
+def guess_species(*texts) -> str:
+    """species 필드가 비었을 때 personality/role/이름 등에서 종 명사를 복원.
+    (활동지 캐릭터 카드에서 '종'이 잘려 사라지는 문제 방지)"""
+    for t in texts:
+        if not t:
+            continue
+        for kw in _KO_SPECIES:
+            if kw in t:
+                # '아기 거북', '꼬마 달팽이'처럼 수식어까지 포함해 반환
+                idx = t.find(kw)
+                pre = t[max(0, idx - 3):idx]
+                for mod in ("아기", "꼬마", "어린"):
+                    if mod in pre:
+                        return mod + " " + kw
+                return kw
     return ""
 
 
@@ -485,19 +521,25 @@ def get_matching_pairs(story: dict) -> list[dict]:
     chars = _chars(story)
     pairs = []
 
-    def best_trait(ch: dict) -> str:
-        for field in ("personality", "species", "role"):
+    seen_traits: set = set()
+
+    def best_trait(ch: dict, avoid: set) -> str:
+        # 종을 우선 노출하되, 이미 쓰인 종과 겹치면 성격으로 대체(매칭 정답 애매 방지)
+        sp = (ch.get("species") or "").strip() or guess_species(
+            ch.get("personality", ""), ch.get("role", ""))
+        if sp and sp not in avoid:
+            return sp
+        for field in ("personality", "role"):
             v = (ch.get(field) or "").split(",")[0].strip()
-            if v:
-                return v[:20] + ("..." if len(v) > 20 else "")
-        return ""
+            if v and v not in avoid:
+                return v[:14] + ("..." if len(v) > 14 else "")
+        return sp or ""
 
     for key in ("main_1", "main_2"):
         ch = chars.get(key) or {}
         if ch.get("name"):
-            trait = best_trait(ch)
-            if not trait:
-                trait = "주인공"
+            trait = best_trait(ch, seen_traits) or "주인공"
+            seen_traits.add(trait)
             pairs.append({"name": ch["name"], "trait": trait})
 
     sup = chars.get("supporting", {})
@@ -505,9 +547,11 @@ def get_matching_pairs(story: dict) -> list[dict]:
         # 조연 전원 반영 (매칭 활동은 최대 4쌍까지)
         for v in sup.values():
             if isinstance(v, dict) and v.get("name"):
-                trait = best_trait(v)
-                if not trait:
-                    trait = "조연"
+                trait = best_trait(v, seen_traits)
+                # 특징이 비었거나 이미 쓰인 것과 겹치면 매칭에서 제외(정답 애매 방지)
+                if not trait or trait in seen_traits:
+                    continue
+                seen_traits.add(trait)
                 pairs.append({"name": v["name"], "trait": trait})
     pairs = pairs[:4]
 
@@ -523,11 +567,42 @@ def get_matching_pairs(story: dict) -> list[dict]:
 
 
 def get_ox_items(story: dict, rng: random.Random) -> list[dict]:
-    """OX 문항 생성: 나레이터 문장에서 참(O) 2개 + 거짓(X) 1개.
-    나레이터 문장을 직접 사용하므로 내용이 자연스럽고 정확함.
-    거짓 문항은 주인공 이름 교체로 생성.
+    """OX 문항 생성.
+    v2: activity_sheet.ox_items({text, answer:bool})가 있으면 그대로 사용.
+    폴백: 나레이터 문장에서 참(O) 2개 + 거짓(X) 1개(이름 교체 휴리스틱).
     """
+    v2 = story.get("activity_sheet", {}).get("ox_items")
+    if isinstance(v2, list) and v2:
+        items = []
+        for it in v2:
+            text = (it.get("text") or "").strip()
+            if not text:
+                continue
+            ans = it.get("answer")
+            # bool / 문자열 O·X 모두 허용
+            if isinstance(ans, bool):
+                ans_s = "O" if ans else "X"
+            else:
+                ans_s = "O" if str(ans).strip().upper() in ("O", "TRUE", "참", "T") else "X"
+            items.append({"statement": text, "answer": ans_s})
+        if len(items) >= 3:
+            rng.shuffle(items)
+            return items[:3]
+
     n1, n2 = _main_names(story)
+
+    def _fix_josa(text: str, name: str) -> str:
+        """name 바로 뒤 조사를 name의 받침 유무에 맞게 교정."""
+        if not name or not ("가" <= name[-1] <= "힣"):
+            return text
+        has_batchim = (ord(name[-1]) - 0xAC00) % 28 != 0
+        for withb, without in [("은", "는"), ("이", "가"), ("을", "를"),
+                                ("과", "와"), ("이랑", "랑")]:
+            correct = withb if has_batchim else without
+            wrong = without if has_batchim else withb
+            text = re.sub(re.escape(name) + re.escape(wrong) + r"(?=[\s.,!?)\"']|$)",
+                          name + correct, text)
+        return text
 
     # 나레이터 문장 수집 (15~50자, 주인공 이름 포함 우선)
     narr_sents: list[str] = []
@@ -546,17 +621,38 @@ def get_ox_items(story: dict, rng: random.Random) -> list[dict]:
 
     items: list[dict] = []
 
+    def _no_dup_name(text: str, name: str) -> bool:
+        """교체 결과에 같은 이름이 연속/근접 중복되면 비문 — 최종 검사(W1)."""
+        if not name:
+            return True
+        # 같은 이름이 2회 이상 등장하면 '토토와 토토'류 비문 위험 → 거부
+        if text.count(name) >= 2:
+            return False
+        # 연속(공백/조사 사이) 중복도 방어
+        if re.search(re.escape(name) + r"[\s와과랑이가은는을를의도,]{0,3}" + re.escape(name), text):
+            return False
+        return True
+
     # 거짓(X) 1개 먼저: n1↔n2 이름 교체 — 원본 문장은 O 후보에서 제외 (정답 유출 방지)
+    # 이름 교체 후 바로 뒤 조사를 새 이름 받침에 맞게 교정 (예: '무지가'→'포근가'(X)→'포근이'(O))
+    # W1: 두 주인공 이름이 모두 들어간 문장은 교체 시 '토토와 토토'가 되므로 제외.
     fake_source = None
     for sent in narr_sents:
+        both = (n1 and n1 in sent) and (n2 and n2 in sent) and n1 != n2
+        if both:
+            continue  # W1: 두 이름 동시 포함 문장은 교체 대상에서 제외
         if n1 and n1 in sent and n2 and n2 != n1:
-            items.append({"statement": sent.replace(n1, n2, 1), "answer": "X"})
-            fake_source = sent
-            break
+            cand = _fix_josa(sent.replace(n1, n2, 1), n2)
+            if _no_dup_name(cand, n2):  # W1: 결과 중복 최종 검사
+                items.append({"statement": cand, "answer": "X"})
+                fake_source = sent
+                break
         elif n2 and n2 in sent and n1 and n1 != n2:
-            items.append({"statement": sent.replace(n2, n1, 1), "answer": "X"})
-            fake_source = sent
-            break
+            cand = _fix_josa(sent.replace(n2, n1, 1), n1)
+            if _no_dup_name(cand, n1):  # W1: 결과 중복 최종 검사
+                items.append({"statement": cand, "answer": "X"})
+                fake_source = sent
+                break
 
     # 참(O) 2개: X의 원본과 다른 나레이터 문장만
     for sent in narr_sents:
@@ -581,7 +677,28 @@ def get_ox_items(story: dict, rng: random.Random) -> list[dict]:
 
 
 def get_fill_blank_items(story: dict) -> list[dict]:
-    """슬라이드 나레이션에서 빈칸 문항 생성."""
+    """빈칸 문항 생성.
+    v2: activity_sheet.fill_blanks({sentence,example,answer})가 있으면 그대로 사용
+        (___ 빈칸 + 보기(example) 상자 표시).
+    폴백: 슬라이드 나레이션에서 이름을 빈칸 처리(2학년 전용 휴리스틱)."""
+    v2 = story.get("activity_sheet", {}).get("fill_blanks")
+    if isinstance(v2, list) and v2:
+        items = []
+        for it in v2:
+            sent = (it.get("sentence") or "").strip()
+            if not sent:
+                continue
+            # ___ 표기를 렌더 공통 형식(____)으로 정규화
+            sent = re.sub(r"_{2,}", "____", sent)
+            items.append({
+                "sentence": sent,
+                "answer": (it.get("answer") or "").strip(),
+                "example": (it.get("example") or "").strip(),
+                "hint": "",
+            })
+        if len(items) >= 2:
+            return items[:3]
+
     chars = _chars(story)
     key_words = [
         (chars.get(k) or {}).get("name", "")
@@ -611,7 +728,17 @@ def get_fill_blank_items(story: dict) -> list[dict]:
 
 
 def get_consonant_items(story: dict) -> list[dict]:
-    """핵심 단어 초성 퀴즈."""
+    """핵심 단어 초성 퀴즈.
+    v2: activity_sheet.wordplay.consonant_words가 있으면 그 낱말을 사용.
+    폴백: 캐릭터 이름 + 주제어 휴리스틱."""
+    wp = story.get("activity_sheet", {}).get("wordplay", {})
+    cw = wp.get("consonant_words") if isinstance(wp, dict) else None
+    if isinstance(cw, list):
+        v2_words = [w.strip() for w in cw if isinstance(w, str) and w.strip()]
+        if len(v2_words) >= 3:
+            return [{"consonants": to_consonants(w), "hint": "", "answer": w}
+                    for w in v2_words[:5]]
+
     chars = _chars(story)
     words = []
     for key in ("main_1", "main_2"):
@@ -680,22 +807,161 @@ def get_emotion_scenes(story: dict) -> list[dict]:
     return scenes[:3]
 
 
-def get_speech_bubbles(story: dict) -> list[dict]:
-    """대화 말풍선 채우기 (주요 대화 장면)."""
+def _speaker_name_map(story: dict) -> dict:
+    """child_boy/child_girl 각각이 어느 주인공(n1/n2)인지 추론.
+    스토리마다 성별 캐스팅이 달라 child_boy=main_1 고정 가정은 틀림.
+    화자가 대사에서 '상대 이름'을 부르면 화자는 그 반대편이라는 단서로 판별."""
     n1, n2 = _main_names(story)
+    votes = {"child_boy": {n1: 0, n2: 0}, "child_girl": {n1: 0, n2: 0}}
+    for s in story.get("slides", []):
+        for seg in s.get("tts_segments", []):
+            sp = seg.get("speaker", "")
+            if sp not in ("child_boy", "child_girl"):
+                continue
+            t = seg.get("text", "")
+            if n1 and n2 and n1 in t and n2 not in t:
+                votes[sp][n2] += 1   # n1을 부르면 화자는 n2
+            elif n2 and n1 and n2 in t and n1 not in t:
+                votes[sp][n1] += 1
+    res = {}
+    for sp in ("child_boy", "child_girl"):
+        v = votes[sp]
+        res[sp] = n1 if v[n1] > v[n2] else (n2 if v[n2] > v[n1] else None)
+    # 미결정/충돌 시 기본 분리(child_boy=n1, child_girl=n2)
+    if res["child_boy"] == res["child_girl"]:
+        res["child_boy"], res["child_girl"] = n1, n2
+    else:
+        res["child_boy"] = res["child_boy"] or (n2 if res["child_girl"] == n1 else n1)
+        res["child_girl"] = res["child_girl"] or (n2 if res["child_boy"] == n1 else n1)
+    return res
+
+
+def _speaker_vote_confident(story: dict) -> bool:
+    """_speaker_name_map 투표에 실제 근거(누군가 상대 이름을 부름)가 있었는지.
+    0:0(근거 없음)이면 화자 표기를 신뢰할 수 없음(W2)."""
+    n1, n2 = _main_names(story)
+    for s in story.get("slides", []):
+        for seg in s.get("tts_segments", []):
+            sp = seg.get("speaker", "")
+            if sp not in ("child_boy", "child_girl"):
+                continue
+            t = seg.get("text", "")
+            if n1 and n2 and ((n1 in t and n2 not in t) or (n2 in t and n1 not in t)):
+                return True
+    return False
+
+
+def _find_teacher_name(story: dict) -> str:
+    """teacher 화자의 실제 이름을 supporting 첫 값이 아니라
+    role/name/species에 어른 키워드가 든 항목 우선으로 탐색(W2)."""
+    sup = _chars(story).get("supporting", {})
+    ADULT_KW = ["선생님", "할아버지", "할머니", "아줌마", "아저씨", "박사",
+                "엄마", "아빠", "이모", "삼촌", "부엉", "곰", "owl", "bear"]
+    if isinstance(sup, dict):
+        # 1순위: 어른 키워드가 이름/역할에 든 항목
+        for v in sup.values():
+            if not (isinstance(v, dict) and v.get("name")):
+                continue
+            hay = " ".join(str(v.get(k, "")) for k in ("name", "role", "species"))
+            if any(kw in hay for kw in ADULT_KW):
+                return v["name"]
+        # 2순위: 아무 이름
+        for v in sup.values():
+            if isinstance(v, dict) and v.get("name"):
+                return v["name"]
+    return "선생님"
+
+
+# 감정 표현(emotion 필드)에서 뽑아낼 핵심 감정어 사전 (W4 힌트용)
+_EMOTION_WORDS = [
+    "호기심", "놀라움", "설렘", "신나", "흥분", "당황", "억울", "화난", "화가",
+    "미안", "반성", "막막", "무서", "용감", "응원", "감동", "뿌듯", "슬픔", "슬프",
+    "기쁨", "즐거", "걱정", "따뜻", "다정", "울먹", "속상", "부끄", "자랑", "명랑",
+]
+
+
+def _emotion_keyword(emo: str) -> str:
+    """emotion 서술 문구에서 핵심 감정어 1개 추출.
+    예: '억울하고 화난 아이의 목소리' → '억울한', '눈이 동그래져 호기심 가득한' → '호기심 어린'."""
+    if not emo:
+        return ""
+    for kw in _EMOTION_WORDS:
+        if kw in emo:
+            # 자연스러운 관형형으로 변환
+            _SUFFIX = {"화난": "화난", "화가": "화난", "슬프": "슬픈", "즐거": "즐거운",
+                       "따뜻": "따뜻한", "무서": "무서운", "억울": "억울한", "막막": "막막한",
+                       "속상": "속상한", "부끄": "부끄러운", "울먹": "울먹이는",
+                       "신나": "신나는", "흥분": "흥분된", "명랑": "명랑한", "다정": "다정한"}
+            if kw in _SUFFIX:
+                return _SUFFIX[kw]
+            # '호기심/놀라움/설렘/감동...' 등 명사형은 '~ 가득한' / '~ 어린'
+            if kw in ("호기심", "놀라움", "감동", "설렘"):
+                return kw + " 가득한"
+            return kw + "한" if kw[-1] not in "함운은는한" else kw
+    return ""
+
+
+def get_speech_bubbles(story: dict) -> list[dict]:
+    """대화 말풍선 채우기 (주요 대화 장면).
+    v2: activity_sheet.speech_bubbles({speaker,situation,hint})가 있으면 그대로 사용.
+        speaker가 실명이므로 화자 추론 불필요, hint는 정답 미노출 상황·감정 힌트.
+    폴백(W2): 화자 투표가 0:0(근거 없음)이면 화자 맞히기 활동으로 전환.
+    폴백(W4): 힌트에 대사 전문을 노출하지 않고 감정/첫 어절만 축소 노출."""
+    v2 = story.get("activity_sheet", {}).get("speech_bubbles")
+    if isinstance(v2, list) and v2:
+        bubbles = []
+        for b in v2:
+            spk = (b.get("speaker") or "").strip()
+            situation = (b.get("situation") or "").strip()
+            hint = (b.get("hint") or "").strip()
+            if not spk or not situation:
+                continue
+            bubbles.append({"character": spk, "situation": situation,
+                            "hint": hint, "guess": False})
+        if bubbles:
+            return bubbles[:3]
+
+    n1, n2 = _main_names(story)
+    name_map = _speaker_name_map(story)
+    confident = _speaker_vote_confident(story)
+    teacher_name = _find_teacher_name(story)
     slides = story.get("slides", [])
     bubbles = []
+    used_situations = set()
     for s in slides:
+        # 슬라이드당 대사 1개만 (상황문이 슬라이드 문장이라 여러 개 뽑으면 중복됨)
         for seg in s.get("tts_segments", []):
             spk = seg.get("speaker", "")
             if spk in ("child_boy", "child_girl", "teacher"):
-                char = n1 if spk == "child_boy" else (n2 if spk == "child_girl" else "선생님")
+                if spk == "teacher":
+                    char = teacher_name
+                    guess = False
+                elif confident:
+                    char = name_map.get(spk, n1)
+                    guess = False
+                else:
+                    # W2: 근거 없는 주인공 화자 → 화자 맞히기로 활동화
+                    char = "누가 말했을까요? (　　)"
+                    guess = True
                 text = seg.get("text", "")
-                # 상황문은 완결된 첫 문장만 (중간 잘림 방지)
+                # 상황문은 완결된 첫 문장만 (중간 잘림 방지), 중복 제외
                 m = re.match(r"[^.!?]*[.!?]", s.get("text", ""))
                 situation = m.group(0).strip() if m and len(m.group(0)) <= 40 else ""
-                if len(text) > 10:
-                    bubbles.append({"character": char, "situation": situation, "hint": text[:15] + "..."})
+                if len(text) > 10 and situation not in used_situations:
+                    # W4: 대사 전문 대신 감정 힌트 or 첫 어절만
+                    emo = (seg.get("emotion", "") or "").strip()
+                    emo_word = _emotion_keyword(emo) if emo else ""
+                    if emo_word:
+                        hint = f"{emo_word} 마음을 담아 말했어요"
+                    elif text.strip():
+                        first = text.strip().split()[0]
+                        hint = f"{first}…"
+                    else:
+                        hint = ""
+                    bubbles.append({"character": char, "situation": situation,
+                                    "hint": hint, "guess": guess})
+                    used_situations.add(situation)
+                    break  # 이 슬라이드에서는 하나만
         if len(bubbles) >= 3:
             break
     return bubbles[:3]
@@ -720,17 +986,53 @@ def get_story_continue_prompt(story: dict) -> dict:
     }
 
 
+def _slide_narrator_sentence(story: dict, slide_no) -> str:
+    """지정한 slide_number의 첫 완결 narrator 문장 반환 (W7 상황문 소스)."""
+    if slide_no is None:
+        return ""
+    for s in story.get("slides", []):
+        if s.get("slide_number") != slide_no:
+            continue
+        for seg in s.get("tts_segments", []):
+            if seg.get("speaker") != "narrator":
+                continue
+            t = (seg.get("text", "") or "").strip()
+            m = re.match(r"[^.!?]*[.!?]", t)
+            sent = m.group(0).strip() if m else t
+            if 8 <= len(sent) <= 60:
+                return sent
+    return ""
+
+
 def get_if_i_were(story: dict) -> dict:
-    """상황문은 행동·정서 판단형 질문만 사용 — 지식 확인형('무엇이 되었나요?')은
-    '나라면 어떻게 했을까'와 어울리지 않으므로 제외."""
+    """'나라면' 상황문 (W7):
+    - quiz question이 의문문이면 그대로 넣지 않고, 그 question의 related_slide narrator
+      문장을 상황문(서술형)으로 사용.
+    - related_slide가 없으면 물음표 문장은 제외하고 서술형 quiz(answer 등)만 후보로.
+    """
     quiz = _quiz_qs(story)
     situation = ""
     _ACT_KEYS = ["어떻게", "왜", "무서", "용기", "기분", "마음", "이겨", "도와", "하기로"]
+
+    # 1순위: 정서/행동형 질문 → related_slide narrator 서술문으로 변환
     for q in reversed(quiz):
         qt = (q.get("question", "") or "").strip()
-        if qt.endswith("?") and 10 <= len(qt) <= 70 and any(k in qt for k in _ACT_KEYS):
-            situation = qt
+        if not (10 <= len(qt) <= 70 and any(k in qt for k in _ACT_KEYS)):
+            continue
+        if qt.endswith("?"):
+            narr = _slide_narrator_sentence(story, q.get("related_slide"))
+            if narr:
+                situation = narr
+                break
+            # related_slide 없으면 서술형 answer를 상황문으로 (물음표 문장 배제)
+            ans = (q.get("answer", "") or "").strip()
+            if ans and not ans.endswith("?") and 8 <= len(ans) <= 60:
+                situation = ans
+                break
+        else:
+            situation = qt  # 이미 서술형이면 그대로
             break
+
     if not situation:
         n1, _ = _main_names(story)
         situation = f"{n1}처럼 어렵고 무서운 일이 생긴다면?"
@@ -747,17 +1049,36 @@ def get_nickname_data(story: dict) -> list[dict]:
     for key in ("main_1", "main_2"):
         ch = chars.get(key) or {}
         if ch.get("name"):
-            p = ch.get("personality", "").split(",")[0].strip()
-            if len(p) > 26:
-                # 어절 경계에서 자르기 (중간 잘림 방지)
-                p = p[:26].rsplit(" ", 1)[0]
+            # 첫 절(쉼표·마침표 이전)만 사용해 문장 중간 끊김 방지.
+            # 단 첫 절이 너무 짧으면(예: '친구를 잘') 쉼표를 공백으로 펴서 완결 어구를 만든다.
+            raw = (ch.get("personality", "") or "").strip()
+            p = re.split(r"[,.!?·]", raw)[0].strip()
+            if len(p) < 6:
+                p = re.sub(r"[,.!?·]", " ", raw).strip()
+            if len(p) > 18:
+                p = p[:18].rsplit(" ", 1)[0]
+            # 마지막 어절이 목적격/주격 조사로 끝나 어색하면 제거 (예: '...친구를' → '...')
+            toks = p.split()
+            if len(toks) > 1 and toks[-1] and toks[-1][-1] in "를을이가와과에의도":
+                p = " ".join(toks[:-1])
             result.append({"name": ch["name"], "trait": p})
     return result
 
 
-def get_draw_prompt(story: dict) -> str:
+def get_draw_prompt(story: dict) -> tuple[str, bool, str | None, str | None]:
     """이야기 끝부분의 '열린 질문'(상상 유도 발문)이 있으면 그리기 발문으로 사용.
-    상상 단원의 핵심 활동(상상해서 표현하기)과 활동지를 직결시키는 장치."""
+    상상 단원의 핵심 활동(상상해서 표현하기)과 활동지를 직결시키는 장치.
+    v2: activity_sheet.draw({prompt,field1_label,field2_label})가 있으면 라벨을 데이터로
+        사용 — 발문과 기입란 라벨이 항상 일치(W6' 해결).
+    Returns: (발문, is_fallback, field1_label, field2_label).
+             field 라벨은 v2가 있을 때만 값이 있고, 없으면 None(휴리스틱 라벨 사용)."""
+    v2 = story.get("activity_sheet", {}).get("draw")
+    if isinstance(v2, dict) and (v2.get("prompt") or "").strip():
+        prompt = v2["prompt"].strip()
+        f1 = (v2.get("field1_label") or "").strip() or None
+        f2 = (v2.get("field2_label") or "").strip() or None
+        return prompt, False, f1, f2
+
     slides = [s for s in story.get("slides", []) if s.get("type") in ("story", "ending")]
     _KEYS = ["상상", "무엇이", "어떤", "같아", "누가", "어디로", "너라면",
              "너는", "가고 싶", "만들고 싶", "들어 있을"]
@@ -768,9 +1089,10 @@ def get_draw_prompt(story: dict) -> str:
             questions = [q.strip() for q in re.findall(r"[^.!?]*\?", t)]
             cand = [q for q in questions if any(k in q for k in _KEYS) and len(q) >= 8]
             if cand:
-                return cand[-1]
+                return cand[-1], False, None, None
     n1, n2 = _main_names(story)
-    return f"{n1} 그리고 {n2}의 이야기에서 가장 기억에 남는 장면은 무엇인가요?"
+    gwa = "와" if (n1 and (ord(n1[-1]) - 0xAC00) % 28 == 0) else "과"
+    return f"{n1}{gwa} {n2}의 이야기에서 가장 기억에 남는 장면을 그려보세요!", True, None, None
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -870,6 +1192,12 @@ def render_ox_quiz(story: dict, rng: random.Random, **_) -> tuple[str, list]:
 
 def render_fill_blank(story: dict, **_) -> tuple[str, list]:
     items = get_fill_blank_items(story)
+    # v2 example(보기)이 하나라도 있으면 상단에 보기 상자 표시 (1학년 백지 공포 완화)
+    examples = [it.get("example", "") for it in items if it.get("example")]
+    box_html = ""
+    if examples:
+        chips = "".join(f'<span class="fill-ex-chip">{html_mod.escape(e)}</span>' for e in examples)
+        box_html = f'<div class="fill-example-box"><span class="fill-ex-label">보기</span>{chips}</div>'
     html = ""
     for i, item in enumerate(items):
         sent = html_mod.escape(item["sentence"])
@@ -877,7 +1205,7 @@ def render_fill_blank(story: dict, **_) -> tuple[str, list]:
         hint_html = f' <span class="fill-hint">힌트: {html_mod.escape(hint)}</span>' if hint else ""
         html += f'<div class="fill-item"><span class="num-badge">{i+1}</span>{sent}{hint_html}</div>'
     answers = [{"label": f"{i+1}", "ans": item.get("answer", "")} for i, item in enumerate(items)]
-    return f'<div class="fill-list">{html}</div>', answers
+    return f'<div class="fill-list">{box_html}{html}</div>', answers
 
 
 def render_story_recall(story: dict, **_) -> tuple[str, list]:
@@ -885,18 +1213,20 @@ def render_story_recall(story: dict, **_) -> tuple[str, list]:
     quizzes = story.get("activity_sheet", {}).get("quiz_questions", [])
     prompts = []
     for q in quizzes[:3]:
-        scene = q.get("question", "")
+        scene = q.get("question", "").strip()
         if scene:
-            prompts.append(html_mod.escape(scene[:30]))
+            # 질문은 자르지 않고 온전히 (자르면 '...동물의 이)'처럼 비문이 됨)
+            prompts.append(html_mod.escape(scene))
     # 3개 미만이면 빈 프롬프트로 채움
     while len(prompts) < 3:
         prompts.append("")
 
     items_html = ""
     for i, prompt in enumerate(prompts):
-        hint = f'<span class="fill-hint">({prompt})</span>' if prompt else ""
+        # W10: 괄호·회색 이탤릭(placeholder처럼 보임) 제거 → 본문 스타일(진한 검정, 정자)
+        q = f'<span class="recall-q">{prompt}</span>' if prompt else ""
         items_html += f"""<div class="recall-item">
-  <span class="num-badge">{i+1}</span>{hint}
+  <div class="cq-q"><span class="num-badge">{i+1}</span>{q}</div>
   <div class="cq-lines"><div class="cq-line"></div><div class="cq-line"></div></div>
 </div>"""
     guide = '<p style="font-size:11px;color:#888;font-style:italic;margin-top:5px;">이야기에서 중요한 장면이나 내용을 떠올려 써보세요.</p>'
@@ -987,7 +1317,40 @@ def render_word_chain(story: dict, rng: random.Random, **_) -> tuple[str, list]:
 
 
 def render_story_sequence(story: dict, rng: random.Random, **_) -> tuple[str, list]:
-    """이야기 순서 배열: 나레이터 문장 3개를 섞어서 번호 쓰기."""
+    """이야기 순서 배열: 사건 문장 3개를 섞어서 번호 쓰기.
+    v2: activity_sheet.sequence_items({label,text,order})가 있으면 그대로 사용.
+    폴백: 나레이터 문장 3개(초·중·후반)를 섞어서 번호 쓰기."""
+    _CIRCLED = ["Ⓐ", "Ⓑ", "Ⓒ", "Ⓓ", "Ⓔ"]
+
+    # 데이터 라벨(A/B/C)을 원문자(Ⓐ/Ⓑ/Ⓒ)로 표시 — 학생이 쓸 순서 번호(1·2·3)와
+    # 시각적으로 구분되도록(라벨=항목 이름, 번호=정답). 정답키도 같은 원문자로 통일.
+    _CIRCLE_MAP = {"A": "Ⓐ", "B": "Ⓑ", "C": "Ⓒ", "D": "Ⓓ", "E": "Ⓔ"}
+
+    v2 = story.get("activity_sheet", {}).get("sequence_items")
+    if isinstance(v2, list) and len(v2) >= 3:
+        # order 기준 정답 순서. 표시 순서는 셔플하되 label은 데이터 그대로 유지.
+        seq = [it for it in v2 if (it.get("text") or "").strip()][:5]
+        if len(seq) >= 3:
+            display = seq.copy()
+            for _ in range(20):
+                rng.shuffle(display)
+                if [s.get("label") for s in display] != [s.get("label") for s in seq]:
+                    break
+            rows = ""
+            answers = []
+            for it in display:
+                raw = str(it.get("label", "")).strip().upper() or "?"
+                label = _CIRCLE_MAP.get(raw, raw)
+                order = it.get("order", "")
+                rows += f"""<div class="seq-item">
+  <div class="seq-label">{html_mod.escape(label)}</div>
+  <div class="seq-text">{html_mod.escape((it.get('text') or '').strip())}</div>
+  <div class="seq-circle"></div>
+</div>"""
+                answers.append({"label": label, "ans": str(order)})
+            guide = '<div class="seq-guide">문장 오른쪽 ○ 안에, 일이 일어난 순서대로 번호(1·2·3)를 써보세요! (Ⓐ·Ⓑ·Ⓒ는 문장 이름이에요)</div>'
+            return f'<div class="seq-list">{rows}</div>{guide}', answers
+
     # 시청자 안내 멘트는 사건이 아니므로 제외
     _SKIP = ["여러분", "보세요", "볼까요", "해 봐", "해봐", "상상해 봐", "만나요", "찾아 직접"]
     narr = []  # 이야기 시간 순서 그대로 수집
@@ -1011,15 +1374,20 @@ def render_story_sequence(story: dict, rng: random.Random, **_) -> tuple[str, li
     # 섞어서 출력 (순서 정답은 숨김 — 아이가 직접 번호 기입)
     display_order = list(range(len(events)))
     rng.shuffle(display_order)
+    # W3: 각 항목에 Ⓐ Ⓑ Ⓒ 라벨 표시 → 정답키('A. 2')와 대조 가능
+    _CIRCLED = ["Ⓐ", "Ⓑ", "Ⓒ", "Ⓓ", "Ⓔ"]
     rows = ""
     answers = []
     for display_i, orig_i in enumerate(display_order):
+        label = _CIRCLED[display_i] if display_i < len(_CIRCLED) else chr(65 + display_i)
+        # W11: 네모 칸 → 번호 쓰기용 원형 칸(seq-circle)
         rows += f"""<div class="seq-item">
-  <div class="seq-num"></div>
+  <div class="seq-label">{label}</div>
   <div class="seq-text">{html_mod.escape(events[orig_i])}</div>
+  <div class="seq-circle"></div>
 </div>"""
         answers.append({"label": chr(65 + display_i), "ans": str(orig_i + 1)})
-    guide = '<div class="seq-guide">이야기 순서에 맞게 번호를 써보세요! (1·2·3)</div>'
+    guide = '<div class="seq-guide">일이 일어난 순서대로 ○ 안에 번호(1·2·3)를 써보세요!</div>'
     return f'<div class="seq-list">{rows}</div>{guide}', answers
 
 
@@ -1027,23 +1395,46 @@ def render_syllable_order(story: dict, rng: random.Random, primary: str, accent:
     """글자 순서 맞히기: 이야기 핵심 단어의 글자를 섞어서 제시.
     - 같은 글자로만 된 낱말(토토 등)은 섞어도 그대로라 제외
     - 섞은 결과가 원래 낱말과 같으면 다시 섞기 (2글자 낱말 대비)"""
+    def _clean(w: str) -> str:
+        """W5: 비한글 문자(구두점·공백·영문·숫자) 제거 후 한글 음절만 남김."""
+        return "".join(c for c in (w or "") if 0xAC00 <= ord(c) <= 0xD7A3)
+
+    # v2: activity_sheet.wordplay.anagram_words가 있으면 그 낱말을 사용.
+    wp = story.get("activity_sheet", {}).get("wordplay", {})
+    aw = wp.get("anagram_words") if isinstance(wp, dict) else None
+    v2_words = []
+    if isinstance(aw, list):
+        for w in aw:
+            c = _clean(w) if isinstance(w, str) else ""
+            if 3 <= len(c) <= 4 and len(set(c)) >= 2 and c not in v2_words:
+                v2_words.append(c)
+
     chars = _chars(story)
-    words = []
+    # W9: 캐릭터 이름은 최대 1문항만 (애너그램이 이름 위주로 쏠리는 문제 방지)
+    name_words = []
     for key in ("main_1", "main_2"):
-        n = (chars.get(key) or {}).get("name", "")
-        if 2 <= len(n) <= 4 and len(set(n)) >= 2:
-            words.append(n)
-    # 추가 단어 — story title에서 추출
+        n = _clean((chars.get(key) or {}).get("name", ""))
+        # W5+W9: 3글자 미만 낱말 제외(2글자 애너그램은 너무 쉬움)
+        if 3 <= len(n) <= 4 and len(set(n)) >= 2:
+            name_words.append(n)
+    words = name_words[:1]  # 이름은 1개만
+
+    # 추가 단어 — story title에서 추출 (비한글 제거 후)
     title = story.get("meta", {}).get("story_title", "")
     for part in re.split(r"[\s!?의와과]", title):
-        if 2 <= len(part) <= 4 and part not in words and len(set(part)) >= 2:
-            words.append(part)
-    # 기본 단어 보충
-    for w in ["친구", "용기", "행복", "마음", "이야기"]:
+        p = _clean(part)
+        if 3 <= len(p) <= 4 and p not in words and len(set(p)) >= 2:
+            words.append(p)
+    # 기본 단어 보충 (3글자 이상)
+    for w in ["이야기", "골고루", "무지개", "반짝반짝", "두근두근"]:
         if len(words) >= 5:
             break
-        if w not in words:
+        w = _clean(w)
+        if 3 <= len(w) <= 4 and w not in words and len(set(w)) >= 2:
             words.append(w)
+    # v2 anagram_words가 충분하면 그것으로 대체(휴리스틱보다 이야기 핵심어에 밀착)
+    if len(v2_words) >= 3:
+        words = v2_words[:4]
     rng.shuffle(words)
     words = words[:4]
 
@@ -1100,7 +1491,7 @@ def render_speech_bubble(story: dict, secondary: str, **_) -> tuple[str, list]:
     <div class="bubble-shape">뭐라고 말했을까요?</div>
     {f'<div class="bubble-hint">힌트: {html_mod.escape(hint)}</div>' if hint else ""}
   </div>
-</div>"""
+</div>"""  # W4: hint는 대사 전문이 아닌 감정/첫 어절 축약본
     return f'<div class="bubble-list">{html}</div>', []
 
 
@@ -1160,7 +1551,7 @@ def render_drawing(story: dict, out_dir: Path | None = None,
     """저학년용 상상 표현 활동:
     주인공 말풍선 발문 → 큰 상상 프레임에 그리기 → 이름 짓기 → 한 줄 소개 → 칭찬 도장.
     (이야기의 열린 질문을 발문으로 연결해 수업 흐름과 직결)"""
-    prompt = get_draw_prompt(story)
+    prompt, is_fallback, v2_f1, v2_f2 = get_draw_prompt(story)
     n1, _n2 = _main_names(story)
 
     # 주인공 얼굴 + 말풍선 발문 (읽기 부담을 줄이고 캐릭터가 직접 묻는 형식)
@@ -1171,16 +1562,30 @@ def render_drawing(story: dict, out_dir: Path | None = None,
             face_html = (f'<img src="data:image/png;base64,{b64}" alt="{html_mod.escape(n1)}" '
                          f'style="width:40px;height:40px;flex-shrink:0;">')
 
+    # W6': v2 draw.field1_label/field2_label이 있으면 발문 주제와 일치하는 라벨을
+    #   데이터로 사용 (그리기 지시-기입란 불일치 결함 소멸).
+    #   없으면 기존 휴리스틱: 상상/창작형 → 이름 짓기, 폴백형 → 기억에 남는 장면.
+    if v2_f1 or v2_f2:
+        label1 = v2_f1 or "🏷️ 이름을 지어 주세요"
+        label2 = v2_f2 or "💬 소개 한 줄"
+        placeholder = "여기에 그려요! ✏️"
+    elif is_fallback:
+        label1, label2 = "🖼️ 어떤 장면인가요?", "💬 왜 기억에 남았나요?"
+        placeholder = "여기에 기억에 남는 장면을 그려요! ✏️"
+    else:
+        label1, label2 = "🏷️ 이름을 지어 주세요", "💬 소개 한 줄 (어디에 살까? 무엇을 잘할까?)"
+        placeholder = "여기에 상상해서 그려요! ✏️"
+
     html = f"""<div class="draw-coach">
   {face_html}
   <div class="draw-bubble"><b>{html_mod.escape(n1)}</b>: “{html_mod.escape(prompt)}”</div>
 </div>
 <div class="imagine-row">
-  <div class="imagine-frame"><span class="draw-placeholder">여기에 상상해서 그려요! ✏️</span></div>
+  <div class="imagine-frame"><span class="draw-placeholder">{placeholder}</span></div>
   <div class="imagine-side">
-    <div class="imagine-label">🏷️ 이름을 지어 주세요</div>
+    <div class="imagine-label">{label1}</div>
     <div class="draw-line"></div>
-    <div class="imagine-label">💬 소개 한 줄 (어디에 살까? 무엇을 잘할까?)</div>
+    <div class="imagine-label">{label2}</div>
     <div class="draw-line"></div>
     <div class="draw-line"></div>
     <div class="stamp-row">
@@ -1278,7 +1683,7 @@ def render_filler_letter_trace(story: dict, primary: str, accent: str) -> str:
             f'</div>'
         )
     guide = '<div style="font-size:10px;color:#aaa;font-style:italic;margin-top:3px;">글자를 보고 오른쪽 칸에 따라 써보세요!</div>'
-    return f'<div class="trace-wrap">{rows}</div>{guide}'
+    return f'<div class="trace-wrap trace-rows">{rows}</div>{guide}'
 
 
 def render_filler_char_draw(story: dict, out_dir: Path, rng: random.Random,
@@ -1306,19 +1711,12 @@ def render_filler_char_draw(story: dict, out_dir: Path, rng: random.Random,
 
 def render_page_filler(story: dict, grade: int, out_dir: Path, rng: random.Random,
                         primary: str, secondary: str, accent: str) -> str:
-    """페이지 남는 공간을 채우는 보너스 활동 HTML."""
-    images_dir = out_dir / "images"
-    has_images = images_dir.exists() and any(images_dir.glob("slide_*.png"))
-
-    if has_images:
-        icon, title = "🖼️", "장면을 따라 그려요!"
-        content = render_filler_scene_draw(story, out_dir, rng, primary, secondary, accent)
-    elif grade == 1:
-        icon, title = "✍️", "낱말을 따라 써요!"
-        content = render_filler_letter_trace(story, primary, accent)
-    else:
-        icon, title = "🎨", "등장인물을 그려요!"
-        content = render_filler_char_draw(story, out_dir, rng, primary, accent)
+    """페이지1 남는 공간을 채우는 보너스 활동 HTML.
+    ※ 그리기형 필러는 남는 공간이 애매하면 잘리거나 그리기 칸이 너무 좁아지는
+    문제가 있어 사용하지 않음 — 그리기는 페이지2의 대형 상상 프레임이 전담.
+    낱말 따라쓰기는 행 단위라 공간에 맞춰 자연스럽게 접혀 잘림이 없음."""
+    icon, title = "✍️", "낱말을 따라 써요!"
+    content = render_filler_letter_trace(story, primary, accent)
 
     return (
         f'<div class="page-filler">'
@@ -1408,7 +1806,8 @@ def render_char_cards_html(chars: dict, story: dict, out_dir: Path,
         desc = ch.get("personality", "").split(",")[0].strip()
         if len(desc) > 22:
             desc = desc[:22] + "..."
-        species = ch.get("species", "")
+        # species 우선, 없으면 personality/role에서 종 복원 (카드에 종이 잘려 사라지는 문제 방지)
+        species = ch.get("species", "") or guess_species(ch.get("personality", ""), ch.get("role", ""))
 
         # 모든 캐릭터(main + supporting)에 대해 얼굴 추출 시도
         img_html, used = get_char_face_html(
@@ -1525,8 +1924,13 @@ body {{
 .char-desc {{ font-size: 10px; color: #5a6a88; margin-top: 1px; line-height: 1.4; }}
 
 /* 2행 (위아래 쌓기) - 활동은 자연 높이, 필러가 남는 공간 채움 */
+/* 페이지1: 필러 없이 두 활동이 남는 공간을 자연스럽게 나눠 가짐 (잘림 원천 차단) */
 .two-col {{ display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-height: 0; overflow: hidden; }}
-.two-col > .act {{ flex: 0 1 auto; }}
+/* W12: 활동 카드가 콘텐츠보다 커도 상단에 큰 빈 공백이 생기지 않도록
+   space-evenly(콘텐츠를 세로 중앙으로 밀어 상단 공백 유발) → flex-start(상단 정렬).
+   카드 자체는 콘텐츠에 맞춰 높이를 갖고, 남는 공간은 카드 사이 gap이 흡수. */
+.two-col > .act {{ flex: 0 1 auto; min-height: 0; }}
+.two-col > .act .act-body {{ display: flex; flex-direction: column; justify-content: flex-start; gap: 6px; flex: 0 1 auto; min-height: 0; }}
 
 /* 활동 카드 */
 .act {{
@@ -1553,6 +1957,7 @@ body {{
 .cq-lines {{ display: flex; flex-direction: column; gap: 4px; }}
 .cq-line {{ border-bottom: 1px solid #b0b8d4; height: {cq_line_h}px; }}
 .num-badge {{ display: inline-block; background: {accent}; color: #fff; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 8px; margin-right: 4px; }}
+.recall-q {{ font-size: {cq_q_fs}px; font-weight: 700; color: #222; font-style: normal; line-height: 1.5; }}
 .ox-list {{ display: grid; grid-template-columns: 1fr; gap: 7px; }}
 .ox-item {{ display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #f5f8ff, #eef2ff); border: 1.5px solid #cdd6f4; border-radius: 10px; padding: 9px 11px; }}
 .ox-circles {{ display: flex; gap: 7px; flex-shrink: 0; }}
@@ -1561,6 +1966,9 @@ body {{
 .fill-list {{ display: flex; flex-direction: column; gap: 6px; }}
 .fill-item {{ background: #fffdf2; border: 1.5px solid {accent}50; border-radius: 8px; padding: 7px 11px; font-size: {fill_fs}px; line-height: 1.9; }}
 .fill-hint {{ font-size: 11px; color: #aaa; font-style: italic; margin-left: 6px; }}
+.fill-example-box {{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px; background: {secondary}10; border: 1.5px dashed {secondary}70; border-radius: 8px; padding: 5px 10px; margin-bottom: 3px; }}
+.fill-ex-label {{ font-size: 10px; font-weight: 800; color: {secondary}; background: #fff; border-radius: 6px; padding: 1px 7px; }}
+.fill-ex-chip {{ font-size: 13px; font-weight: 700; color: #444; background: #fff; border: 1px solid {secondary}40; border-radius: 6px; padding: 2px 9px; }}
 
 /* ─ GAME 활동 ─ */
 .ws-wrap {{ display: flex; flex-direction: column; align-items: center; gap: 6px; }}
@@ -1604,8 +2012,10 @@ body {{
 /* ─ 이야기 순서 ─ */
 .seq-list {{ display: flex; flex-direction: column; gap: 7px; }}
 .seq-item {{ display: flex; align-items: center; gap: 8px; background: #fafbff; border: 1.5px solid {primary}25; border-radius: 9px; padding: 8px 10px; }}
+.seq-label {{ font-size: 15px; font-weight: 900; color: {primary}; flex-shrink: 0; width: 22px; text-align: center; }}
 .seq-num {{ width: 26px; height: 26px; border: 2px solid {primary}60; border-radius: 6px; flex-shrink: 0; background: #fff; }}
-.seq-text {{ font-size: 13px; line-height: 1.5; color: #333; }}
+.seq-circle {{ width: 28px; height: 28px; border: 2px solid {primary}; border-radius: 50%; flex-shrink: 0; background: #fff; margin-left: auto; }}
+.seq-text {{ font-size: 13px; line-height: 1.5; color: #333; flex: 1; }}
 .seq-guide {{ font-size: 11px; color: #888; font-style: italic; margin-top: 5px; }}
 
 /* ─ 음절 순서 ─ */
@@ -1680,7 +2090,8 @@ body {{
 }}
 /* 글자 따라쓰기 (1학년) */
 .trace-wrap {{ display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; }}
-.trace-row {{ display: flex; align-items: center; gap: 6px; }}
+.trace-row {{ display: flex; align-items: center; gap: 6px; break-inside: avoid; }}
+.trace-rows, .filler-act-body {{ overflow: hidden; min-height: 0; }}
 .trace-label {{ font-size: 10px; font-weight: 700; color: {primary}60; width: 16px; flex-shrink: 0; }}
 .trace-model {{ display: flex; gap: 2px; flex-shrink: 0; }}
 .trace-char {{
@@ -1735,8 +2146,9 @@ body {{
 .mini-hdr-title {{ font-size: 12px; font-weight: 700; color: {primary}; }}
 .mini-hdr-fields {{ display: flex; gap: 11px; font-size: 11px; }}
 
-/* 정답 키 */
-.answer-key {{ margin-top: auto; padding: 5px 10px; flex-shrink: 0; border: 1.5px dashed {primary}30; border-radius: 8px; background: {primary}04; }}
+/* 정답 키 (W8: 마지막 페이지 최하단에 거꾸로 인쇄 — 아이가 다 풀고 뒤집어 확인) */
+.answer-key {{ margin-top: auto; padding: 5px 10px; flex-shrink: 0; border: 1.5px dashed {primary}30; border-radius: 8px; background: {primary}04; transform: rotate(180deg); }}
+.ak-notice {{ font-size: 8px; color: {primary}70; text-align: center; margin-bottom: 2px; font-weight: 700; }}
 .ak-title {{ font-size: 8px; font-weight: 700; color: #ccc; letter-spacing: 2px; margin-bottom: 2px; text-align: center; }}
 .ak-body {{ font-size: 9px; color: #aaa; line-height: 1.6; }}
 .act-error {{ color: red; font-size: 11px; padding: 8px; }}
@@ -1784,12 +2196,13 @@ def build_html(story: dict, selection: dict, out_dir: Path) -> str:
     p2t_html, p2t_ans = build_act_html(selection["p2_top"],   story, rng, primary, secondary, accent)
     p2b_html, _       = build_act_html(selection["p2_bottom"], story, rng, primary, secondary, accent, is_drawing=True, out_dir=out_dir)
 
-    # 페이지1 남는 공간 채우기
-    filler_html = render_page_filler(story, grade, out_dir, rng, primary, secondary, accent)
+    # 페이지1 필러 제거 — 두 활동이 flex로 페이지를 채움 (잘림·빈 박스 원천 차단)
+    filler_html = ""
 
     # 정답
     all_answers = p1l_ans + p1r_ans + p2t_ans
-    answer_parts = [f"{a['label']}. {a['ans'][:25]}{'...' if len(a['ans']) > 25 else ''}"
+    # 정답키는 180° 회전 영역이라 여러 줄이 무방 — 38자 절단 제거하고 전문 표시
+    answer_parts = [f"{a['label']}. {html_mod.escape(str(a['ans']))}"
                     for a in all_answers if a.get("ans")]
     answers_html = " &nbsp;|&nbsp; ".join(answer_parts) if answer_parts else "—"
 
@@ -1836,7 +2249,6 @@ def build_html(story: dict, selection: dict, out_dir: Path) -> str:
   <div class="two-col">
     {p1l_html}
     {p1r_html}
-    {filler_html}
   </div>
 
   <div class="page-footer">
@@ -1859,6 +2271,7 @@ def build_html(story: dict, selection: dict, out_dir: Path) -> str:
   {p2b_html}
 
   <div class="answer-key">
+    <div class="ak-notice">정답은 거꾸로 있어요! 다 풀고 확인해요 😊</div>
     <div class="ak-title">정 &nbsp; 답</div>
     <div class="ak-body">{answers_html}</div>
   </div>
@@ -1933,7 +2346,7 @@ def main():
         sys.exit(1)
 
     grade = story.get("meta", {}).get("grade", 2)
-    selection = select_activities(grade, seed=args.seed)
+    selection = select_activities(grade, seed=args.seed, story=story)
 
     print(f"\n[활동 선택] seed={selection['seed_used']}")
     print(f"  페이지1 좌: {selection['p1_left']}  ({ACTIVITY_POOL[selection['p1_left']]['title']})")

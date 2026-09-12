@@ -32,11 +32,26 @@ SCOPES = [
     "https://www.googleapis.com/auth/youtube",
     "https://www.googleapis.com/auth/drive.file",
 ]
+# Google 정책상 youtube/youtube.upload를 drive.file과 한 요청에 같이 못 받음
+# (오류 400: "This request contains scopes that cannot be requested together")
+# → Drive 스코프 없이 인증한 채널은 여기 등록, --no-drive 자동 강제
+YOUTUBE_ONLY_SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube",
+]
+NO_DRIVE_CHANNELS = {"en"}  # HAMZZI(영어) 채널 — Drive 링크 필요해지면 별도 재인증 필요
 
 # 채널별 토큰 파일
 CHANNEL_TOKENS = {
     "ko": Path("token_ko.json"),   # 한국어 채널 (햄찌와 떠나는 동화 여행)
     "id": Path("token_id.json"),   # 인도네시아 채널
+    "en": Path("token_en.json"),   # 영어 채널 (HAMZZI) — youtube 스코프만
+}
+
+# 채널 전환이 필요한 채널 (하나의 구글 계정에 브랜드 채널 여러 개 연결된 경우)
+SWITCH_CHANNEL_HINT = {
+    "id": "인도네시아",
+    "en": "HAMZZI(영어)",
 }
 
 
@@ -49,11 +64,12 @@ def get_credentials(channel: str = "ko"):
     from google_auth_oauthlib.flow import InstalledAppFlow
     from google.auth.transport.requests import Request
 
+    scopes = YOUTUBE_ONLY_SCOPES if channel in NO_DRIVE_CHANNELS else SCOPES
     token_file = CHANNEL_TOKENS.get(channel, Path(f"token_{channel}.json"))
 
     creds = None
     if token_file.exists():
-        creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
+        creds = Credentials.from_authorized_user_file(str(token_file), scopes)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -62,15 +78,67 @@ def get_credentials(channel: str = "ko"):
             if not CLIENT_SECRET.exists():
                 print("[ERROR] client_secret.json 없음", file=sys.stderr)
                 sys.exit(1)
-            if channel == "id":
-                print("\n[인증 안내] 브라우저에서 반드시 인도네시아 채널로 전환 후 승인하세요!")
-                print("  YouTube Studio → 채널 전환 → 인도네시아 채널 선택 → 이 창 유지\n")
-            flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRET), SCOPES)
+            hint = SWITCH_CHANNEL_HINT.get(channel)
+            if hint:
+                print(f"\n[인증 안내] 브라우저에서 반드시 {hint} 채널로 전환 후 승인하세요!")
+                print(f"  YouTube → 프로필 → 채널 전환 → {hint} 채널 선택 → 이 창 유지\n")
+            flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRET), scopes)
             creds = flow.run_local_server(port=0)
         with open(token_file, "w") as f:
             f.write(creds.to_json())
         print(f"  [인증 저장] {token_file}")
     return creds
+
+
+# ─────────────────────────────────────────────────
+#  채널 신원 검증 (업로드 직전 필수 게이트)
+# ─────────────────────────────────────────────────
+# 2026-09-12 사고: token_id.json이 실제로는 별도의 인도네시아 채널이 아니라
+# 한국어 메인 채널(햄찌와 떠나는 동화 여행)로 인증되어 있었음. 인증 시 브라우저
+# 안내 문구(SWITCH_CHANNEL_HINT)만 믿고 넘어갔더니, 이미 저장된 token_id.json이
+# 재사용되면서 안내가 뜨지도 않은 채 그대로 본채널에 인니어 번역 영상이 공개됨.
+# → 업로드 직전 항상 실제 channel_id를 channel_registry.json과 대조해서 막는다.
+CHANNEL_REGISTRY = Path("channel_registry.json")
+
+
+def verify_channel(channel: str, creds):
+    """실제 인증된 채널이 channel_registry.json에 등록된 채널과 일치하는지 확인.
+    미등록/불일치 시 RuntimeError를 던져 업로드를 차단한다."""
+    from googleapiclient.discovery import build
+
+    yt = build("youtube", "v3", credentials=creds)
+    resp = yt.channels().list(part="snippet", mine=True).execute()
+    items = resp.get("items", [])
+    if not items:
+        raise RuntimeError(f"[채널확인 실패] --channel {channel}: mine=True 채널 조회 결과 없음")
+
+    actual = items[0]
+    actual_id = actual["id"]
+    actual_title = actual["snippet"]["title"]
+
+    registry = {}
+    if CHANNEL_REGISTRY.exists():
+        registry = json.loads(CHANNEL_REGISTRY.read_text(encoding="utf-8"))
+
+    expected = registry.get(channel)
+    if not expected or not expected.get("channel_id"):
+        raise RuntimeError(
+            f"\n[업로드 차단] --channel {channel} 이(가) channel_registry.json에 등록되지 않았습니다.\n"
+            f"  실제 인증된 채널: '{actual_title}' (id={actual_id})\n"
+            f"  이 채널이 정말 '{channel}' 용도가 맞다면 channel_registry.json에 추가하세요:\n"
+            f'    \"{channel}\": {{\"channel_id\": \"{actual_id}\", \"title\": \"{actual_title}\"}}\n'
+            f"  (실수 방지를 위해 브라우저에서 올바른 채널로 전환 후 재인증했는지 다시 한번 확인!)"
+        )
+    if expected["channel_id"] != actual_id:
+        raise RuntimeError(
+            f"\n[업로드 차단] --channel {channel} 인증이 등록된 채널과 다릅니다!\n"
+            f"  기대: '{expected.get('title')}' (id={expected['channel_id']})\n"
+            f"  실제: '{actual_title}' (id={actual_id})\n"
+            f"  token_{channel}.json 이 잘못된 계정/채널로 인증되어 있을 수 있습니다.\n"
+            f"  token_{channel}.json 을 삭제하고 브라우저에서 올바른 채널로 전환 후 재인증하세요."
+        )
+    print(f"  [채널확인 OK] --channel {channel} -> '{actual_title}' ({actual_id})")
+    return actual_id
 
 
 # ─────────────────────────────────────────────────
@@ -390,6 +458,13 @@ def main():
 
     # 인증 (채널별)
     creds = get_credentials(args.channel)
+
+    # 채널 신원 검증 (2026-09-12 사고 재발 방지 — 필수, 우회 불가)
+    verify_channel(args.channel, creds)
+
+    if args.channel in NO_DRIVE_CHANNELS and not args.no_drive:
+        print(f"[안내] {ch_name}은(는) Drive 스코프 없이 인증됨 → --no-drive 자동 적용")
+        args.no_drive = True
 
     # ① Drive 업로드 (그림책 PPT + 활동지 PDF)
     pptx_url = None

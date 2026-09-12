@@ -1,0 +1,17 @@
+{
+  "_comment": "2026-09-12 사고 재발 방지용 채널 검증 레지스트리. publish_youtube.verify_channel() 이 업로드 직전 실제 인증된 channel_id를 여기와 대조한다. --channel 코드가 여기 없거나 channel_id가 다르면 업로드를 막는다. token_id.json이 실제로는 한국어 메인 채널(햄찌와 떠나는 동화 여행)로 인증되어 있어서 '인니 채널 업로드'가 그대로 본채널에 공개된 사고가 있었음 (에피소드 1개, 즉시 비공개 전환 완료).",
+  "ko": {
+    "channel_id": "UCoLLxrXQFYUaJvIzKTSGw8w",
+    "title": "햄찌와 떠나는 동화 여행",
+    "custom_url": "@hamissam-1"
+  },
+  "id": null,
+  "en": {
+    "channel_id": "UC_JAT6vjJoDtwJ5eRqjdJdQ",
+    "title": "HAMZZI",
+    "custom_url": null,
+    "_verified": "2026-09-12: _auth_setup_en.py로 OAuth 인증 직후 channels().list(mine=True)로 실측 확인됨"
+  },
+  "pt": null,
+  "es": null
+}

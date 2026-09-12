@@ -110,6 +110,18 @@ python 08_generate_book_pptx.py --dir output/epNN --mode 1
 
 # 12. ★ 파이프라인 품질 점검 (6영역 100점 채점 + 자동 수정 순환)
 python pipeline_inspector.py --ep N --auto-fix --json output/epNN/qa_report.json
+
+# 13. 유튜브 업로드/예약발행 (channel_registry.json 검증 게이트 통과해야 진행됨 — 아래 참고)
+python publish_youtube.py --dir output/epNN --channel ko --schedule "..." --yes
+
+# 14. ★★ 썸네일 C 배경분리 액션("사진 액션") — 반드시 13번 업로드 *이후*, 절대 생략 금지
+#     10b_batch_thumb_bg.py는 publish_log.json(video_id)이 있는 폴더만 대상으로 잡기 때문에
+#     반드시 업로드 이후에 실행해야 함(업로드 전에 돌리면 조용히 스킵되고 아무 오류도 안 남).
+#     최근 2회 실제로 이 단계를 빼먹어 신규 에피소드에 thumbnail_c가 누락된 사고가 있었음 —
+#     새 에피소드를 만들 때마다 13번 다음에 반드시 세트로 실행할 것.
+python 10b_batch_thumb_bg.py --only <에피소드 폴더명 일부>
+python 10_generate_thumbnail.py --dir output/epNN --style c
+python _push_thumb_c_live.py output/epNN   # publish_log.json의 video_id에 썸네일C 라이브 반영
 ```
 
 ### 품질 점검 스크립트 요약
@@ -120,6 +132,12 @@ python pipeline_inspector.py --ep N --auto-fix --json output/epNN/qa_report.json
 | 2a ★ | 02a_check_images.py | 할루시네이션·비교육성 (100점) | 불합격 이미지 재생성 |
 | 3a ★ | 03a_check_narration.py | 화자혼입·언어·흐름 | 특수문자·voice 자동 수정 |
 | QA ★ | pipeline_inspector.py | 6영역 종합 (100점) | 순환 자동 수정 |
+| 14 ★★ | 10b_batch_thumb_bg.py + 10(--style c) + _push_thumb_c_live.py | 썸네일 C 배경분리("사진 액션") | 업로드 후 자동 적용 필수 — 빠뜨리면 조용히 스킵됨 |
+
+## 업로드 채널 안전장치 (2026-09-12 사고 이후 필수)
+- `token_id.json`이 실제로는 한국어 메인 채널로 인증되어 있어서, 인니 채널 업로드가 그대로 본채널에 공개된 사고 발생(에피소드 1개, 즉시 비공개 전환).
+- 재발 방지: `publish_youtube.py`는 업로드 직전 `verify_channel()`로 실제 인증된 channel_id를 `channel_registry.json`과 대조하고, 등록 안 됐거나 불일치하면 업로드를 **강제 차단**한다.
+- 새 채널(`--channel` 코드)을 처음 쓸 때는 반드시 `channel_registry.json`에 실측 channel_id를 등록한 뒤 사용할 것. 등록 없이 우회 금지.
 
 ## 에피소드별 재생성 가이드
 

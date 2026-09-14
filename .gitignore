@@ -62,3 +62,23 @@ _rewrite_preview.md
 개선설계계획서_*.md
 채널진단보고서_*.md
 활동지컨설팅보고서_*.md
+
+# 토큰 백업까지 확실히 제외 (token_*.json 만으로는 token_id.json.bak 이 안 걸러짐)
+token_*.json*
+
+# 배치/운영 상태 파일 (로컬 전용 — 어디까지 올렸는지 기록)
+_en_batch_log.json
+_id_batch_log.json
+_id_haru_batch_log.json
+_revoice_reupload_log.json
+_pipeline_queue.txt
+_pipeline_done.txt
+_next_schedule.txt
+_dispatcher_stop
+
+# 점검 리포트·썸네일 백업 (로컬 전용)
+_thumb_c_audit*.json
+_thumb_char_check.json
+_voice_audit_report.json
+_thumb_backup_*/
+_tmp_*.py

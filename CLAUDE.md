@@ -139,6 +139,105 @@ python _push_thumb_c_live.py output/epNN   # publish_log.json의 video_id에 썸
 - 재발 방지: `publish_youtube.py`는 업로드 직전 `verify_channel()`로 실제 인증된 channel_id를 `channel_registry.json`과 대조하고, 등록 안 됐거나 불일치하면 업로드를 **강제 차단**한다.
 - 새 채널(`--channel` 코드)을 처음 쓸 때는 반드시 `channel_registry.json`에 실측 channel_id를 등록한 뒤 사용할 것. 등록 없이 우회 금지.
 
+## 다국어 채널 운영 (2026-09-13 정비)
+
+| 코드 | 채널 | channel_id | 상태 |
+|------|------|-----------|------|
+| ko | 햄찌와 떠나는 동화 여행 | UCoLLxrXQFYUaJvIzKTSGw8w | 운영 중 |
+| en | HAMZZI (@HAMZZI-g4m) | UC_JAT6vjJoDtwJ5eRqjdJdQ | 운영 시작 (1편 공개) |
+| id | (미개설) | - | **채널 개설 + 인증 필요** |
+
+### 새 언어 채널 붙이는 절차
+```bash
+# 1) 유튜브에서 해당 언어 브랜드 채널을 먼저 만든다 (사람이 직접)
+# 2) 인증 + 실측 channel_id 확인 (브라우저 열림 — 사용자가 직접 실행)
+python _auth_setup_channel.py id
+# 3) 표시된 채널이 맞으면 레지스트리에 등록
+python _auth_setup_channel.py id --register
+```
+- 등록 전에는 `verify_channel()`이 업로드를 차단한다(2026-09-12 오업로드 사고 방지). 우회 금지.
+- 이미 다른 코드로 등록된 channel_id면 `_auth_setup_channel.py`가 경고하고 중단한다 → `--force-reauth`로 채널 전환해서 재인증.
+
+### 영어(HAMZZI) 배치
+```bash
+python run_en_batch.py              # 상상 단원 10편: 번역 -> TTS -> 조립 -> 업로드
+python run_en_batch.py --limit 1    # 앞에서 N편만
+python run_en_batch.py --no-upload  # 생성만
+```
+- **TTS**: Typecast ssfm-v30 `language=eng` — 한국어판과 **같은 캐릭터 보이스**(Mrs. Claus / Oliver / Miu / Bono). 품질 실측 확인됨(원어민 수준, Gemini 전환 불필요)
+- **이름 표기**: `translate_multilang.romanize_names()`가 번역 *전에* 치환.
+  - 간판 캐릭터는 `FIXED_NAME_ROMAN` 고정: 삐요=**Piyo**, 토토=**Toto** (채널 소개문과 일치해야 함)
+  - 지어낸 이름은 로마자(느리=Neuri), **설명형 이름은 의미 번역**(까치 어미=Mother Magpie, 개구리 아저씨=Mr. Frog)
+  - 모델에 맡기면 "Ppiyo"가 나오고 TTS가 "Peep-Peep-O"로 읽는다 — 반드시 사전 치환 경로 사용
+- **설명란/제목**: `run_en_batch.build_en_title/description` (영어 전용). `yt_meta.py`는 한국어 전용이라 영어 채널에 쓰면 안 됨
+- **Drive 링크 없음**: token_en은 youtube 스코프만 (`NO_DRIVE_CHANNELS`)
+- **썸네일**: 신규 채널은 전화 인증 전까지 맞춤 썸네일 403.
+  → https://www.youtube.com/verify 인증 후 `python _push_thumb_en.py` 로 일괄 적용 (업로드 자체는 실패 처리하지 않음)
+
+### 인도네시아(id) 현재 상태
+- 채널이 아직 없어 업로드 불가. 제작만 미리 돌려둔다:
+```bash
+python run_id_sangsang_batch.py --no-upload --limit 3
+python run_id_haru_batch.py --no-upload
+```
+- 채널 개설·등록이 끝나면 `--no-upload` 없이 재실행하면 미업로드분부터 이어서 올라간다.
+- TTS는 Gemini(무료 한도 100req/일) → 편당 약 70~80req. 하루 1편 페이스가 한계이며 초과 시 ElevenLabs 폴백 검토.
+
+## TTS 세그먼트 완전성 게이트 (2026-09-14 사고 이후 필수)
+
+**증상**: 영상은 정상으로 보이는데 특정 대사가 통째로 없다(자막도 같이 빠짐).
+
+**원인**: Gemini TTS(`gemini-2.5-flash-preview-tts`)가 간헐적으로 빈 응답을 준다
+(`'NoneType' object has no attribute 'parts'`). `03_generate_tts.py` 는 3회 재시도 후 그
+세그먼트를 포기하고 넘어가고, `04_concat_audio.py` 는 **만들어진 wav 만** 이어붙이므로
+결손이 조용히 영상에 반영된다. 인니 20편 중 9편이 이 상태로 업로드된 뒤 발견했다(전부 재업로드).
+
+**게이트**: `tts_gate.py` — story.json 이 요구하는 세그먼트 수와 실제 wav 를 대조하고,
+모자라면 03 을 다시 돌려(03은 기존 wav 를 건너뛰므로 빠진 것만 생성) 최대 2회까지 채운다.
+끝내 미달이면 **조립·업로드를 중단**한다. 이미 아래 4곳에 들어가 있다:
+`_run_full_pipeline.sh`(한국어) · `_run_en_pipeline.sh`(영어) · `run_id_sangsang_batch.py` · `run_id_haru_batch.py`
+
+```bash
+python tts_gate.py --dir output/폴더              # 검사 + 부족분 자동 보충 (실패 시 exit 1)
+python tts_gate.py --dir output/폴더 --check-only  # 검사만
+python _repair_id_tts.py --check                  # 인니 전 편 결손 현황
+python _repair_id_tts.py                          # 보수 + 재조립 + 재업로드(구버전 private)
+python _repair_id_tts.py --reupload --only <일부>  # 결손은 없는데 업로드만 실패한 편 복구
+```
+- 업로드·인증 단계는 SSL 순단이 잦다 → `publish_youtube.retry()` 로 감쌀 것(배치 3종에 적용됨).
+- 게이트를 통과 못 한 편은 업로드되지 않고 로그에 에러로 남는다. 다음 실행 때 그 편부터 재시도된다.
+
+## 썸네일 스타일 C 규칙과 강제 절차 (2026-09-14 전면 재조립)
+
+규칙: **두 주인공 상반신 클로즈업(다리·발은 프레임 밖) + 캐릭터는 왼쪽 + 오른쪽은 텍스트 자리.**
+
+2026-08-23 배치분부터 이 규칙이 계속 깨져 있었다(실측 c_bg 26장 중 **21장이 전신샷**). 아무도
+검사하지 않아 그대로 라이브에 걸려 있었고, 영어판은 한국어 c_bg를 복사하므로 같이 틀렸다.
+
+### 생성만으로는 못 고친다 (시도 기록)
+- 10b 프롬프트에 "다리·발은 프레임 밖", "가슴에서 자르라", 끝내 "머리만 그려라"까지 넣고
+  4라운드 재생성 → **4번 다 전신샷**. 레퍼런스 캐릭터 시트가 전신이라 그 구도로 끌려간다.
+- 배치로 21장을 다시 뽑았더니 절반이 여전히 전신인 데다 **캐릭터가 틀어졌다**
+  (알탐험에서 토토가 사라지고 병아리 2마리). → 재생성분은 반드시 캐릭터 검사를 통과해야 쓴다.
+
+### 확정된 절차
+```bash
+python _audit_thumb_c.py                     # 프레임 규칙 점검 (발 보임 여부 기준, md5로 언어판 중복 제거)
+python _check_thumb_chars.py --newer-than "YYYY-MM-DD HH:MM"   # 캐릭터 시트 대조 (재생성분 필수)
+python _crop_thumb_c_bg.py --all --force --group-w 0.68        # rembg 누끼 → 상반신 재조립
+python _fix_thumb_c.py --propagate           # 한국어 c_bg를 _en/_id 로 복사
+bash _render_thumb_c_all.sh                  # 전 폴더 --style c 재렌더
+python _push_thumb_c_all.py --dry-run        # 대상 확인 후
+python _push_thumb_c_all.py                  # 라이브 일괄 반영 (재업로드 불필요 = URL·조회수 유지)
+```
+- `_crop_thumb_c_bg.py` 가 핵심: rembg 누끼 → 연결성분으로 캐릭터 분리 → **사이 빈 공간을 없애고
+  어깨를 붙여** 확대 → 왼쪽 배치, 아래 모서리에서 잘리게. 원본은 `thumbnail_c_bg_full.png` 로 보존(`--restore`).
+- 편별 미세조정: `--group-w`(오른쪽 텍스트 자리), `--upper-keep`(다리 잘라내는 정도).
+- 판정기 주의: "얼굴이 화면의 몇 %냐"로 물으면 **같은 파일이 70%/22%로 갈린다**. 반드시
+  '발이 보이나 / 어디서 잘렸나' 같은 이산적 질문으로 물을 것. 그래도 오탐이 있으니 애매하면 눈으로 본다.
+- **백업 없이 c_bg를 덮지 말 것**: 2026-09-14 배치 재생성이 원본을 덮었고 복원용 백업이 이미
+  재생성본이라 일부 편의 8/23 원본이 유실됐다. 작업 전 `_thumb_backup_YYYYMMDD/` 로 통째 복사.
+
 ## 에피소드별 재생성 가이드
 
 ### 스토리만 재생성

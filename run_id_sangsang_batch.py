@@ -9,6 +9,7 @@ run_id_sangsang_batch.py
 - 실패한 에피소드는 로그에 error로 남기고 다음으로 진행. 재실행 시 완료분(_id_batch_log.json에
   video_id 있는 항목)은 건너뜀 -> 안전하게 재시도 가능.
 """
+import argparse
 import json
 import subprocess
 import sys
@@ -167,12 +168,21 @@ def upload_id(dst_dir: Path, story: dict, creds, schedule: str, unit_id: str):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--limit", type=int, default=None, help="앞에서 N편만 처리")
+    ap.add_argument("--no-upload", action="store_true",
+                    help="생성만 하고 업로드 건너뜀 (인니 채널 미개설 상태에서 미리 제작용)")
+    args = ap.parse_args()
+
     log = load_log()
-    creds = py.get_credentials("id")
-    py.verify_channel("id", creds)  # 2026-09-12 사고 재발 방지 — 필수, 우회 불가
+    creds = None
+    if not args.no_upload:
+        creds = py.retry(lambda: py.get_credentials("id"), "인증")
+        py.retry(lambda: py.verify_channel("id", creds), "채널확인")  # 2026-09-12 사고 재발 방지 — 필수, 우회 불가
     out_root = ROOT / "output"
 
-    for i, ep in enumerate(EPISODES, 1):
+    episodes = EPISODES[:args.limit] if args.limit else EPISODES
+    for i, ep in enumerate(episodes, 1):
         src_name = ep["src"]
         key = src_name
         if log.get(key, {}).get("video_id"):
@@ -196,6 +206,13 @@ def main():
             audio_dir = dst_dir / "audio"
             if not (audio_dir / "timing.json").exists():
                 run([PY, "03_generate_tts.py", "--dir", str(dst_dir)], cwd=ROOT)
+            # TTS 세그먼트 완전성 게이트 (2026-09-14 사고 이후 필수)
+            # Gemini TTS 가 간헐적으로 빈 응답을 줘 대사가 통째로 빠진 영상이 업로드된 적이 있다.
+            # 빠진 것만 다시 만들어 보고, 그래도 미달이면 이 편은 조립·업로드하지 않고 건너뛴다.
+            from tts_gate import ensure_complete
+            if not ensure_complete(dst_dir, retries=2, python_exe=PY):
+                raise RuntimeError("TTS 세그먼트 결손 — 조립·업로드 중단")
+
             run([PY, "04_concat_audio.py", "--dir", str(dst_dir)], cwd=ROOT)
             run([PY, "05_generate_srt.py", "--dir", str(dst_dir)], cwd=ROOT)
             run([PY, "07b_generate_quiz_slides.py", "--dir", str(dst_dir)], cwd=ROOT)
@@ -205,6 +222,11 @@ def main():
             run([PY, "06_assemble_video.py", "--dir", str(dst_dir)], cwd=ROOT)
 
             story = json.loads((dst_dir / "story.json").read_text(encoding="utf-8"))
+
+            if args.no_upload:
+                print(f"[생성 완료 / 업로드 생략] {dst_dir.name}")
+                continue
+
             video_id = upload_id(dst_dir, story, creds, ep["schedule"], ep["unit_id"])
 
             log[key] = {

@@ -62,7 +62,13 @@ def build_prompt(story: dict) -> str:
         f"YouTube thumbnail background, 16:9. An upper-body close-up of {who}, "
         f"the two main characters shown in the attached character sheets. "
         f"Keep their exact same design, colors and art style as the reference sheets. "
-        f"Expression: {emo_desc}. Their faces and shoulders fill at least 60% of the frame. "
+        f"Expression: {emo_desc}. "
+        # 2026-09-13: '얼굴이 60%를 채우라'는 지시만으로는 전신샷이 계속 나왔다(26장 중 21장 실패).
+        # 모델이 확실히 따르는 건 '어디서 자를지'를 못박는 지시 → 아래 두 줄은 삭제 금지.
+        f"IMPORTANT FRAMING: this is a TIGHT UPPER-BODY CLOSE-UP. Crop the characters at the "
+        f"chest, just below the shoulders. Their legs, feet and lower bodies must be OUTSIDE "
+        f"the frame and completely invisible. The tops of their heads nearly touch the top edge. "
+        f"Their faces and shoulders fill at least 60% of the frame. "
         f"Place the two characters on the LEFT 55% of the image; leave the RIGHT side a "
         f"simple, softly blurred background (open space for a text overlay to be added later). "
         f"Bright, vivid, clean soft-watercolor children's picture-book style. "
@@ -71,15 +77,30 @@ def build_prompt(story: dict) -> str:
     )
 
 
-def target_dirs(only=None, force=False):
+def load_audit_fails(audit_path="_thumb_c_audit.json"):
+    """_audit_thumb_c.py 결과에서 불합격 폴더명 집합. 언어판(_en/_id/_pt/_es)은 원본만 재생성하고
+    복사로 해결하므로 제외한다."""
+    p = Path(audit_path)
+    if not p.exists():
+        print(f"[ERROR] {audit_path} 없음 — 먼저 python _audit_thumb_c.py 를 실행하세요")
+        sys.exit(1)
+    data = json.loads(p.read_text(encoding="utf-8"))
+    names = {k for k, v in data.items() if v.get("issues")}
+    return {n for n in names if not any(n.endswith(sfx) for sfx in ("_en", "_id", "_pt", "_es"))}
+
+
+def target_dirs(only=None, force=False, from_audit=False):
     dirs = []
+    audit_fails = load_audit_fails() if from_audit else None
     for pl in sorted(Path("output").glob("*/publish_log.json")):
         d = pl.parent
+        if audit_fails is not None and d.name not in audit_fails:
+            continue
         if EXCLUDE_KEYWORD in d.name:
             continue
         if only and only not in d.name:
             continue
-        if (d / BG_NAME).exists() and not force:
+        if (d / BG_NAME).exists() and not (force or from_audit):
             continue
         # 레퍼런스 존재 확인
         if not (d / "characters" / "main_1.png").exists():
@@ -231,6 +252,8 @@ def main():
     ap.add_argument("--only", default=None)
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--max-rounds", type=int, default=3, help="누락분 재제출 최대 라운드")
+    ap.add_argument("--from-audit", action="store_true",
+                    help="_thumb_c_audit.json 불합격분만 재생성 (언어판 제외, 기존 bg 덮어씀)")
     args = ap.parse_args()
 
     api_key = os.getenv("GEMINI_API_KEY")
@@ -240,7 +263,7 @@ def main():
     from google import genai
     client = genai.Client(api_key=api_key)
 
-    dirs = target_dirs(args.only, args.force)
+    dirs = target_dirs(args.only, args.force, args.from_audit)
     print(f"[INFO] 대상 폴더 {len(dirs)}개")
     if not dirs:
         print("[INFO] 생성할 배경 없음 (모두 존재하거나 대상 없음)")

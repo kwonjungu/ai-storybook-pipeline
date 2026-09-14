@@ -15,6 +15,7 @@ translate_multilang.py
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -98,6 +99,73 @@ ELEVENLABS_VOICES = {
 }
 
 
+# ── 캐릭터 이름 로마자 표기 ──────────────────────────────
+# 번역 모델에 맡기면 "삐요 → Ppiyo"처럼 TTS가 "Peep-Peep-O"로 읽는 표기가 나온다.
+# → 번역 '전에' 한국어 이름을 라틴 표기로 미리 치환하고, 모델에는 "라틴 이름은 그대로 두라"고 지시한다.
+# 간판 캐릭터는 채널 브랜딩(HAMZZI 소개문 "Piyo the chick and Toto the turtle")과 반드시 일치해야 함.
+FIXED_NAME_ROMAN = {
+    "삐요": "Piyo", "토토": "Toto", "햄찌": "Hamzzi",
+}
+
+_HANGUL_RE = re.compile(r"[가-힣]")
+
+
+def romanize_names(names, lang: str) -> dict:
+    """등장인물 한국어 이름 → 읽기 쉬운 라틴 표기. 간판 캐릭터는 고정값 사용."""
+    out, todo = {}, []
+    for n in names:
+        n = (n or "").strip()
+        if not n or not _HANGUL_RE.search(n):
+            continue
+        if n in FIXED_NAME_ROMAN:
+            out[n] = FIXED_NAME_ROMAN[n]
+        else:
+            todo.append(n)
+    if todo:
+        prompt = (
+            f"Convert these Korean storybook character names for a {LANG_CONFIG[lang]['name']} audience. "
+            "Two cases. "
+            "1) INVENTED proper name (a made-up nickname such as 삐요, 토토, 느리): romanize it "
+            "phonetically. No doubled initial consonants (never Pp, Tt, Kk), no apostrophes, "
+            "no hyphens, short, Title Case. "
+            "2) DESCRIPTIVE name made of common nouns (such as 까치 어미 = mother magpie, "
+            "개구리 아저씨 = uncle frog): do NOT romanize. Translate it naturally into the target "
+            "language as a warm storybook name a child understands, for example Mother Magpie, Mr. Frog. "
+            "A text-to-speech engine must read the result correctly. "
+            "Return ONLY a JSON object mapping each original name to its converted form. "
+            + json.dumps(todo, ensure_ascii=False)
+        )
+        try:
+            r = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.2,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
+            )
+            raw = r.text.strip()
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                raw = raw[4:] if raw.startswith("json") else raw
+                raw = raw.strip()
+            if raw.endswith("```"):
+                raw = raw[:-3].strip()
+            out.update({k: v for k, v in json.loads(raw).items() if v})
+        except Exception as e:
+            print(f"  [WARN] 이름 로마자 변환 실패 — 원문 유지: {e}")
+    return out
+
+
+def apply_name_map(text: str, name_map: dict) -> str:
+    """긴 이름부터 치환 (부분 문자열 충돌 방지)."""
+    if not text or not name_map:
+        return text
+    for ko in sorted(name_map, key=len, reverse=True):
+        text = text.replace(ko, name_map[ko])
+    return text
+
+
 def build_translate_prompt(fields_dict: dict, lang: str) -> str:
     cfg = LANG_CONFIG[lang]
     return f"""You are an expert translator for children's content (ages 7-8).
@@ -106,7 +174,8 @@ Translate the following Korean text into {cfg['prompt_lang']}
 Rules:
 - Natural and expressive, NOT literal translation
 - Keep the emotional nuance and excitement
-- Do NOT translate character names (keep Korean names as-is)
+- Character names are ALREADY written in the Latin alphabet. Copy them EXACTLY as given,
+  never re-spell, translate, or add doubled consonants to them
 - No special characters like ..., —, ― (use only periods and commas)
 - Return ONLY valid JSON, no extra text, no markdown
 
@@ -161,13 +230,33 @@ def translate_story(src_dir: Path, lang: str):
 
     data = json.loads(src_story.read_text(encoding="utf-8"))
 
+    # ── [0] 캐릭터 이름 라틴 표기 (번역 전 사전 치환) ──────
+    chars = data.get("meta", {}).get("characters", {}) or {}
+    cand = []
+    for key in ("main_1", "main_2"):
+        c = chars.get(key) or {}
+        if isinstance(c, dict) and c.get("name"):
+            cand.append(c["name"])
+    for c in (chars.get("supporting") or {}).values():
+        if isinstance(c, dict) and c.get("name"):
+            cand.append(c["name"])
+    name_map = romanize_names(cand, lang)
+    if name_map:
+        print("[0] 이름 로마자: " + ", ".join(f"{k}→{v}" for k, v in name_map.items()))
+
+    def tr(fields: dict) -> dict:
+        """이름을 라틴 표기로 치환한 뒤 번역."""
+        return translate_texts({k: apply_name_map(v, name_map) for k, v in fields.items()}, lang)
+
     # ── meta 번역 ──────────────────────────────────────────
     print("[1] meta 번역...")
     meta_fields = {
         "story_title":   data["meta"]["story_title"],
         "youtube_title": data["meta"]["youtube_title"],
     }
-    meta_tr = translate_texts(meta_fields, lang)
+    if (data["meta"].get("logline") or "").strip():
+        meta_fields["logline"] = data["meta"]["logline"]
+    meta_tr = tr(meta_fields)
 
     # ── slides 번역 ────────────────────────────────────────
     print("[2] slides 번역...")
@@ -177,7 +266,7 @@ def translate_story(src_dir: Path, lang: str):
         slide_fields[f"slide_{n}_text"] = s["text"]
         for i, seg in enumerate(s.get("tts_segments", [])):
             slide_fields[f"slide_{n}_tts_{i}"] = seg["text"]
-    slide_tr = translate_texts(slide_fields, lang)
+    slide_tr = tr(slide_fields)
 
     # ── shorts_strategy 번역 ───────────────────────────────
     print("[3] shorts_strategy 번역...")
@@ -185,7 +274,7 @@ def translate_story(src_dir: Path, lang: str):
         "hook_line": data["shorts_strategy"]["hook_line"],
         "title":     data["shorts_strategy"]["title"],
     }
-    shorts_tr = translate_texts(shorts_fields, lang)
+    shorts_tr = tr(shorts_fields)
 
     # ── thumbnail 번역 ─────────────────────────────────────
     print("[4] thumbnail 번역...")
@@ -193,7 +282,7 @@ def translate_story(src_dir: Path, lang: str):
         "text":     data["thumbnail"]["text"],
         "sub_text": data["thumbnail"]["sub_text"],
     }
-    thumb_tr = translate_texts(thumb_fields, lang)
+    thumb_tr = tr(thumb_fields)
 
     # ── quiz_questions 번역 ────────────────────────────────
     print("[5] quiz_questions 번역...")
@@ -201,7 +290,7 @@ def translate_story(src_dir: Path, lang: str):
     for i, q in enumerate(data["activity_sheet"]["quiz_questions"]):
         quiz_fields[f"q{i}_question"] = q["question"]
         quiz_fields[f"q{i}_answer"]   = q["answer"]
-    quiz_tr = translate_texts(quiz_fields, lang)
+    quiz_tr = tr(quiz_fields)
 
     # ── 번역 결과 적용 ─────────────────────────────────────
     print("[6] 번역 결과 적용...")
@@ -209,11 +298,27 @@ def translate_story(src_dir: Path, lang: str):
     data["meta"]["language"]      = lang
     data["meta"]["story_title"]   = meta_tr.get("story_title",   data["meta"]["story_title"])
     data["meta"]["youtube_title"] = meta_tr.get("youtube_title", data["meta"]["youtube_title"])
+    if "logline" in meta_tr:
+        data["meta"]["logline"] = meta_tr["logline"]   # 설명란 본문에 그대로 쓰임
 
-    # 한국어 보이스(Typecast/구 Supertone) → ElevenLabs 보이스로 교체
-    data["meta"].pop("typecast_voices", None)
-    data["meta"].pop("supertone_voices", None)
-    data["meta"]["elevenlabs_voices"] = ELEVENLABS_VOICES
+    # 캐릭터 이름을 라틴 표기로 교체 (설명란/태그에 한국어 이름이 새는 것 방지)
+    for key in ("main_1", "main_2"):
+        c = chars.get(key)
+        if isinstance(c, dict) and c.get("name") in name_map:
+            c["name"] = name_map[c["name"]]
+    for c in (chars.get("supporting") or {}).values():
+        if isinstance(c, dict) and c.get("name") in name_map:
+            c["name"] = name_map[c["name"]]
+
+    if lang == "en":
+        # 영어는 Typecast가 ko/en 둘 다 지원(ssfm-v30) → 기존 캐릭터 보이스 그대로 재사용
+        # (같은 voice_id에 language="eng"만 바꿔 호출, 03_generate_tts.py --engine typecast)
+        data["meta"].pop("supertone_voices", None)
+    else:
+        # 그 외 언어는 ElevenLabs 보이스로 교체 (기존 방식 유지)
+        data["meta"].pop("typecast_voices", None)
+        data["meta"].pop("supertone_voices", None)
+        data["meta"]["elevenlabs_voices"] = ELEVENLABS_VOICES
 
     # quiz_tts 추가
     data["meta"]["quiz_tts"] = cfg["quiz_tts"]

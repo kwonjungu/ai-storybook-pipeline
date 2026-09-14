@@ -39,7 +39,11 @@ YOUTUBE_ONLY_SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube",
 ]
-NO_DRIVE_CHANNELS = {"en"}  # HAMZZI(영어) 채널 — Drive 링크 필요해지면 별도 재인증 필요
+NO_DRIVE_CHANNELS = {"en", "id"}  # HAMZZI(영어) / Dongeng Bersama Hami(인니)
+# 2026-09-14: 인니 채널 인증도 같은 400 invalid_request 로 막혔다
+#   ("This request contains scopes that cannot be requested together")
+#   → 새 언어 채널은 기본적으로 여기에 등록하고 YouTube 전용 스코프로 인증할 것.
+#   Drive 링크는 한국어 채널에서만 쓰고, 타 언어 설명란은 링크 없이 간다.
 
 # 채널별 토큰 파일
 CHANNEL_TOKENS = {
@@ -58,6 +62,22 @@ SWITCH_CHANNEL_HINT = {
 # ─────────────────────────────────────────────────
 #  OAuth 인증 (채널별)
 # ─────────────────────────────────────────────────
+
+def retry(fn, what: str = "요청", tries: int = 4, delay: int = 3):
+    """SSL 순단(SSLEOFError)·일시적 네트워크 오류에 대비한 공용 재시도.
+    2026-09-14: 인증/채널확인 단계에서 SSLEOFError 로 배치가 시작도 못 하고 죽는 일이 반복됐다."""
+    import time
+    last = None
+    for attempt in range(tries):
+        try:
+            return fn()
+        except Exception as e:
+            last = e
+            print(f"  [재시도 {attempt+1}/{tries}] {what}: {str(e)[:90]}", flush=True)
+            if attempt < tries - 1:
+                time.sleep(delay * (attempt + 1))
+    raise last
+
 
 def get_credentials(channel: str = "ko"):
     from google.oauth2.credentials import Credentials

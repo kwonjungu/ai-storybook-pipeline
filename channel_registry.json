@@ -5,7 +5,12 @@
     "title": "햄찌와 떠나는 동화 여행",
     "custom_url": "@hamissam-1"
   },
-  "id": null,
+  "id": {
+    "channel_id": "UC8D-wQLFfP4AR9DdwXRxtpw",
+    "title": "Dongeng Bersama Hami(Indonesia)",
+    "custom_url": "@dongengbersamahamiindonesia",
+    "_verified": "2026-09-14: _auth_setup_channel.py 로 실측 확인"
+  },
   "en": {
     "channel_id": "UC_JAT6vjJoDtwJ5eRqjdJdQ",
     "title": "HAMZZI",

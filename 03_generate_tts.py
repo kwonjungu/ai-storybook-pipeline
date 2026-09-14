@@ -163,6 +163,8 @@ QUIZ_Q_BRIDGE = {
 TYPECAST_BASE_URL = "https://api.typecast.ai"
 TYPECAST_MODEL = os.getenv("TYPECAST_MODEL", "ssfm-v30")  # ssfm-v30(최신) | ssfm-v21(안정)
 TYPECAST_TEXT_LIMIT = 2000  # 요청당 최대 글자 수
+# story.json meta.language → Typecast language 파라미터(ISO 639-3). ko/en만 Typecast 지원.
+TYPECAST_LANG_CODE = {"ko": "kor", "en": "eng"}
 
 # ---------------------------------------------------------------------------
 # 캐릭터별 보이스 선택 기준
@@ -225,14 +227,80 @@ def emotion_to_preset(emotion: str):
     return None
 
 
+_ELDER_KEYWORDS = ["나무", "tree", "wise", "elder", "ancient", "현인", "장로",
+                   "할아버지", "할머니", "grandpa", "grandfather", "grandma", "grandmother"]
+_GRANDPA_KEYWORDS = ["할아버지", "grandpa", "grandfather"]
+_GRANDMA_KEYWORDS = ["할머니", "grandma", "grandmother"]
+
+# 성별이 명확한 역할 단서(남/여) — 캐릭터에 explicit gender 필드가 없을 때만 참고
+_MALE_ROLE_KEYWORDS = ["아저씨", "삼촌", "왕자", "우체부", "농부 아저씨", "임금님", "임금",
+                       "아빠", "아버지", "father", "dad ",
+                       "king", "prince", "uncle", "mailman", "postman", "wizard", "마법사", "도깨비"]
+_FEMALE_ROLE_KEYWORDS = ["아줌마", "이모", "공주", "여왕", "왕비", "마녀",
+                         "엄마", "어머니", "mother", "mom ",
+                         "queen", "princess", "aunt", "witch", "sorceress"]
+
+
+def _resolve_gender(combined: str, explicit_gender=None, default=None):
+    """explicit gender 필드 → 역할 키워드 → default(보통 None=무편향) 순으로 성별 결정.
+    '기타 조연은 무조건 female' 같은 하드코딩을 막기 위한 공통 헬퍼."""
+    if explicit_gender in ("male", "female"):
+        return explicit_gender
+    if any(w in combined for w in _MALE_ROLE_KEYWORDS):
+        return "male"
+    if any(w in combined for w in _FEMALE_ROLE_KEYWORDS):
+        return "female"
+    return default
+
+
+def _elder_criteria_override(speaker: str, chars: dict):
+    """조연 캐릭터 설명에 할아버지/할머니/현자 단서가 있으면 기준을 반환.
+    speaker가 'teacher' 같은 표준 예약 이름이어도(예: 부엉이 할아버지 선생님) 적용되도록
+    표준 기준 조회보다 먼저 확인한다."""
+    sup = chars.get("supporting", {})
+    if not isinstance(sup, dict):
+        return None
+    for k, v in sup.items():
+        if not isinstance(v, dict):
+            continue
+        if k != speaker and v.get("name") != speaker:
+            continue
+        combined = (v.get("role", "") + " " + v.get("appearance_en", "")).lower()
+        if not any(w in combined for w in _ELDER_KEYWORDS):
+            return None
+        is_grandpa = any(w in combined for w in _GRANDPA_KEYWORDS)
+        is_grandma = any(w in combined for w in _GRANDMA_KEYWORDS)
+        if is_grandpa:
+            gender = "male"
+        elif is_grandma:
+            gender = "female"
+        else:
+            # 성별 불명확한 '현자/나무 정령'류 — 무리하게 단정 짓지 않고 explicit/키워드만 참고
+            explicit = v.get("gender") if v.get("gender") in ("male", "female") else None
+            gender = _resolve_gender(combined, explicit, default=None)
+        return {
+            "gender": gender,
+            "age": ["middle_age", "elder"],
+            "use_case": ["narration", "audiobook", "storytelling"],
+            # 할아버지 특유의 걸걸하고 느긋한 저음 — 더 크게 감속
+            "speed": 0.8 if is_grandpa else 0.85,
+        }
+    return None
+
+
 def build_dynamic_criteria(speaker: str, story: dict) -> dict:
     """스토리 캐릭터 정보를 이용해 커스텀 speaker에 맞는 보이스 기준을 생성합니다."""
+    meta = story.get("meta", {})
+    chars = meta.get("characters", {})
+
+    # 할아버지/할머니 단서 우선 확인 — speaker가 'teacher' 등 표준 예약명이어도 덮어씀
+    elder = _elder_criteria_override(speaker, chars)
+    if elder:
+        return elder
+
     # 표준 기준에 있으면 그걸 그대로 사용
     if speaker in VOICE_SEARCH_CRITERIA:
         return VOICE_SEARCH_CRITERIA[speaker]
-
-    meta = story.get("meta", {})
-    chars = meta.get("characters", {})
 
     # main_1 / main_2 / main_3 / sub_1 등 → 캐릭터 gender/species 활용
     import re as _re
@@ -269,25 +337,21 @@ def build_dynamic_criteria(speaker: str, story: dict) -> dict:
             role = v.get("role", "").lower()
             app = v.get("appearance_en", "").lower()
             combined = role + " " + app
-            # 마녀 / 빌런 / 악당
+            explicit_gender = v.get("gender") if v.get("gender") in ("male", "female") else None
+            # (엘더/할아버지·할머니 케이스는 함수 진입 시 _elder_criteria_override에서 이미 처리됨)
+            # 마녀 / 빌런 / 악당 — "마녀"만 여성 확정, 나머지는 explicit gender/키워드로 판단
             if any(w in combined for w in ["마녀", "witch", "villain", "dark", "shadow", "evil", "악당"]):
+                is_witch = any(w in combined for w in ["마녀", "witch", "sorceress"])
+                gender = "female" if is_witch else _resolve_gender(combined, explicit_gender, default="female")
                 return {
-                    "gender": "female",
+                    "gender": gender,
                     "age": ["middle_age"],
                     "use_case": ["acting", "game", "storytelling"],
                     "speed": 0.88,
                 }
-            # 현자 / 나무 / 장로
-            if any(w in combined for w in ["나무", "tree", "wise", "elder", "ancient", "현인", "장로", "할아버지", "할머니"]):
-                return {
-                    "gender": "female",
-                    "age": ["middle_age", "elder"],
-                    "use_case": ["narration", "audiobook", "storytelling"],
-                    "speed": 0.85,
-                }
-            # 기타 조연 → 젊은 성인
+            # 기타 조연 → explicit gender/역할 키워드로 판단 (무조건 female 고정 금지)
             return {
-                "gender": "female",
+                "gender": _resolve_gender(combined, explicit_gender, default=None),
                 "age": ["young_adult"],
                 "use_case": ["storytelling", "acting"],
                 "speed": 0.95,
@@ -405,6 +469,29 @@ def build_voice_query(speaker: str, story: dict) -> str:
         "child_girl": "명랑하고 귀여운 어린 여자아이 목소리, 애니메이션 더빙",
         "teacher":    "친절하고 신뢰감 있는 선생님 목소리, 어린이 교육 콘텐츠",
     }
+    # 할아버지/할머니/현자 단서가 있으면 최우선 — 실제 캐릭터 나이/성별 반영
+    # (안 그러면 'teacher' 같은 예약 speaker명은 항상 똑같은 고정 쿼리로만 추천받아
+    #  에피소드마다 캐릭터가 다르더라도 같은 보이스만 반복 추천됨)
+    elder = _elder_criteria_override(speaker, chars)
+    if elder:
+        gender_kr = {"male": "할아버지(할아범)", "female": "할머니", None: "나이 지긋한 어르신"}[elder["gender"]]
+        return f"{gender_kr} 목소리, 나이 들고 느긋하며 걸걸한 저음, 어린이 동화 구연, 애니메이션 더빙"
+
+    # supporting 캐릭터 설명이 있으면 — speaker가 'teacher' 등 예약명이어도 — 그 실제 캐릭터로 쿼리 구성
+    # (그래야 '엄마 곰 요리사' 같은 캐릭터가 표준 teacher 쿼리로 뭉개져 항상 같은 보이스로 가는 걸 막음)
+    sup = chars.get("supporting", {})
+    if isinstance(sup, dict):
+        for k, v in sup.items():
+            if not (isinstance(v, dict) and (k == speaker or v.get("name") == speaker)):
+                continue
+            combined = (v.get("role", "") + " " + v.get("appearance_en", "")).lower()
+            explicit_gender = v.get("gender") if v.get("gender") in ("male", "female") else None
+            gender = _resolve_gender(combined, explicit_gender, default=None)
+            gender_kr = {"male": "남성", "female": "여성", None: ""}[gender]
+            role = v.get("role") or v.get("appearance_en", "")[:40] or "조연 캐릭터"
+            gender_part = f"{gender_kr} " if gender_kr else ""
+            return f"어린이 동화 속 {role} 역할에 어울리는 {gender_part}개성 있는 목소리, 애니메이션 더빙"
+
     if speaker in base_queries:
         return base_queries[speaker]
 
@@ -415,14 +502,6 @@ def build_voice_query(speaker: str, story: dict) -> str:
         parts = [p for p in [ch.get("species", ""), ch.get("personality", "")] if p]
         desc = ", ".join(parts) or "동화 주인공"
         return f"어린이 동화 속 캐릭터({desc})에 어울리는 {gender} 목소리, 애니메이션 더빙"
-
-    # supporting 캐릭터
-    sup = chars.get("supporting", {})
-    if isinstance(sup, dict):
-        for k, v in sup.items():
-            if isinstance(v, dict) and (k == speaker or v.get("name") == speaker):
-                role = v.get("role", "조연 캐릭터")
-                return f"어린이 동화 속 {role} 역할에 어울리는 개성 있는 목소리, 애니메이션 더빙"
 
     return f"어린이 동화 캐릭터 {speaker}에 어울리는 목소리, 애니메이션 더빙"
 
@@ -571,9 +650,11 @@ def generate_tts_typecast(api_key: str, voice_id: str, text: str,
                           output_path: Path, speed: float = 1.0,
                           pitch_shift: int = 0, emotion: str = "",
                           prev_text: str = "", next_text: str = "",
-                          ep_dir: Path = None, max_retries: int = 3) -> str:
+                          ep_dir: Path = None, max_retries: int = 3,
+                          language: str = "kor") -> str:
     """Typecast API로 TTS를 생성하고 WAV로 저장합니다.
     감정: 문맥(prev/next)이 있으면 Smart Emotion(공식 권장), 고정 멘트는 프리셋.
+    language: ISO 639-3 (ko="kor", en="eng") — TYPECAST_LANG_CODE 참고.
     Returns: "ok" | "forbidden" | "error"
     """
     headers = {
@@ -587,7 +668,7 @@ def generate_tts_typecast(api_key: str, voice_id: str, text: str,
         "voice_id": voice_id,
         "text": text[:TYPECAST_TEXT_LIMIT],
         "model": TYPECAST_MODEL,
-        "language": "kor",  # ISO 639-3
+        "language": language,  # ISO 639-3
         "output": {
             "audio_format": "wav",
             "audio_tempo": max(0.5, min(2.0, speed)),
@@ -1100,14 +1181,18 @@ def main():
     print(f"  출력 폴더: {audio_dir}")
     print()
 
-    # ── 비한국어 또는 --engine gemini → Gemini TTS 분기 ────
-    if lang != "ko" or args.engine == "gemini":
+    # ── 엔진 분기 ────────────────────────────────────────
+    # Typecast는 ko/en 지원 (language 파라미터로 전환, ssfm-v30 다국어).
+    # 그 외 언어(id/es/pt/ja 등)는 항상 Gemini/ElevenLabs 경로 — 기존 다국어 인프라 유지.
+    # engine=gemini를 명시하면 ko/en이어도 Gemini로 강제.
+    TYPECAST_CAPABLE_LANGS = ("ko", "en")
+    if args.engine == "gemini" or lang not in TYPECAST_CAPABLE_LANGS:
         slide_segments_map = run_gemini_tts_pipeline(ep_dir, story, lang=lang)
         # timing.json 생성은 아래 공통 로직에서 처리
         _build_timing_json(ep_dir, story, slides, audio_dir, slide_segments_map)
         return
 
-    # ── 한국어 → Typecast TTS ──────────────────────────────
+    # ── 한국어/영어 → Typecast TTS ──────────────────────────
     api_key = os.getenv("TYPECAST_API_KEY")
     if not api_key:
         print("[ERROR] TYPECAST_API_KEY가 .env에 없습니다")
@@ -1344,7 +1429,8 @@ def main():
                                        speed=speed, pitch_shift=pitch_shift,
                                        emotion=seg.get("emotion", ""),
                                        prev_text=prev_text, next_text=next_text,
-                                       ep_dir=ep_dir)
+                                       ep_dir=ep_dir,
+                                       language=TYPECAST_LANG_CODE.get(lang, "kor"))
         if result == "ok":
             print(f"  [{slide_num:02d}-{seg_idx:02d}] [{speaker}] voice={voice_name} — 완료")
         elif result == "forbidden":
@@ -1392,7 +1478,8 @@ def main():
                 r2 = generate_tts_typecast(api_key, fallback["voice_id"], text, seg_path,
                                            speed=criteria.get("speed", 1.0),
                                            emotion=seg.get("emotion", ""),
-                                           ep_dir=ep_dir)
+                                           ep_dir=ep_dir,
+                                           language=TYPECAST_LANG_CODE.get(lang, "kor"))
                 if r2 == "ok":
                     print(f"  [{slide_num:02d}-{seg_idx:02d}] [{speaker}] voice={fallback['name']} — 완료(교체)")
                 else:
@@ -1612,15 +1699,9 @@ def main():
         # 퀴즈 TTS: 문제/정답 읽기 없이 안내 멘트만 생성
         # 문제 슬라이드는 5초 무음으로 표시 (시청자가 직접 읽기)
         # 정답 슬라이드도 5초 무음으로 표시
-        quiz_lines = [
-            ("quiz_intro", "자, 이제 퀴즈를 풀어볼까요?"),
-            ("quiz_q1", "1번 문제입니다!"),
-            ("quiz_q2", "2번 문제입니다!"),
-            ("quiz_q3", "3번 문제입니다!"),
-            ("quiz_a1", "정답입니다!"),
-            ("quiz_a2", "정답입니다!"),
-            ("quiz_a3", "정답입니다!"),
-        ]
+        # 언어별 안내 멘트 (GEMINI_QUIZ_LINES 재사용 — Typecast ko/en 둘 다 지원)
+        quiz_lines = [(fname, text) for fname, text, _emo in
+                      GEMINI_QUIZ_LINES.get(lang, GEMINI_QUIZ_LINES["ko"])]
 
         for fname, text in quiz_lines:
             out_path = audio_dir / f"{fname}.wav"
@@ -1629,7 +1710,8 @@ def main():
                 continue
             ok = generate_tts_typecast(api_key, mascot_voice_id, clean_tts_text(text), out_path,
                                        speed=mascot_speed, emotion="기쁨",
-                                       ep_dir=ep_dir)
+                                       ep_dir=ep_dir,
+                                       language=TYPECAST_LANG_CODE.get(lang, "kor"))
             if ok == "ok":
                 print(f"  {fname}.wav — 완료")
             else:
@@ -1640,7 +1722,7 @@ def main():
         narr_voice_id = narrator_vi.get("voice_id", mascot_voice_id)
         narr_speed = narrator_vi.get("speed", mascot_speed)
         quiz_questions = story.get("activity_sheet", {}).get("quiz_questions", [])
-        bridge = QUIZ_Q_BRIDGE.get("ko")
+        bridge = QUIZ_Q_BRIDGE.get(lang, QUIZ_Q_BRIDGE["ko"])
         if quiz_questions:
             print(f"  [퀴즈 본문] narrator 낭독 {len(quiz_questions)}문항")
         for i, qq in enumerate(quiz_questions):
@@ -1653,7 +1735,8 @@ def main():
                     print(f"  quiz_q{qnum}_body.wav — 이미 존재, 건너뜀")
                 else:
                     ok = generate_tts_typecast(api_key, narr_voice_id, q_text + bridge, q_body,
-                                               speed=narr_speed, emotion="", ep_dir=ep_dir)
+                                               speed=narr_speed, emotion="", ep_dir=ep_dir,
+                                               language=TYPECAST_LANG_CODE.get(lang, "kor"))
                     print(f"  quiz_q{qnum}_body.wav — {'완료' if ok == 'ok' else '실패'}")
             if a_text:
                 a_body = audio_dir / f"quiz_a{qnum}_body.wav"
@@ -1661,7 +1744,8 @@ def main():
                     print(f"  quiz_a{qnum}_body.wav — 이미 존재, 건너뜀")
                 else:
                     ok = generate_tts_typecast(api_key, narr_voice_id, a_text, a_body,
-                                               speed=narr_speed, emotion="", ep_dir=ep_dir)
+                                               speed=narr_speed, emotion="", ep_dir=ep_dir,
+                                               language=TYPECAST_LANG_CODE.get(lang, "kor"))
                     print(f"  quiz_a{qnum}_body.wav — {'완료' if ok == 'ok' else '실패'}")
 
     # ------------------------------------------------------------------
@@ -1679,7 +1763,8 @@ def main():
         else:
             ok = generate_tts_typecast(api_key, mascot_voice_id, hook_line, shorts_hook_path,
                                        speed=mascot_speed, emotion="신남",
-                                       ep_dir=ep_dir)
+                                       ep_dir=ep_dir,
+                                       language=TYPECAST_LANG_CODE.get(lang, "kor"))
             if ok == "ok":
                 print(f"  shorts_hook.wav — 완료")
             else:

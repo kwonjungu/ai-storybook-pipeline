@@ -12,7 +12,8 @@ run_en_batch.py
 - Drive: HAMZZI 채널 토큰은 youtube 스코프만 -> 활동지/PPT 링크 없음(설명란에서 생략)
 
 사용법:
-  python run_en_batch.py                # 전체(미업로드분만)
+  python run_en_batch.py                    # 상상 단원 전체(미업로드분만)
+  python run_en_batch.py --unit haru        # 하루 단원
   python run_en_batch.py --limit 1      # 앞에서 N편만
   python run_en_batch.py --no-upload    # 생성만 하고 업로드는 건너뜀
 """
@@ -36,7 +37,7 @@ import publish_youtube as py
 PY = sys.executable
 
 # 1편(알탐험)은 채널 첫 영상 -> 즉시 공개. 이후 주 2편(화·목 09:00 KST) 예약.
-EPISODES = [
+EPISODES_SANGSANG = [
     dict(src="통합교과_알에서동물이태어난다면2021_1학년_함께골라요_삐요와토토의신비한알탐험",
          unit_en="If Animals Hatched from Eggs (pp. 20-21)", schedule=None),
     dict(src="통합교과_상자에물건이들어있다면2223_1학년_함께골라요_삐요와토토의신비한상자",
@@ -59,6 +60,36 @@ EPISODES = [
          unit_en="If You Had a Superpower (pp. 38-39)", schedule="2026-10-14T09:00:00+09:00"),
 ]
 
+# 하루 단원 — 상상 단원 예약이 끝나는 2026-10-14 다음부터 이어서 (화·목 09:00 KST)
+EPISODES_HARU = [
+    dict(src="통합교과_하늘의하루2223p_1학년_함께골라요_삐요와토토하늘의색을세어봐요",
+         unit_en="A Day with the Sky (pp. 22-23)", schedule="2026-10-16T09:00:00+09:00"),
+    dict(src="통합교과_달팽이의하루2425p_1학년_함께골라요_느리의아주특별한하루",
+         unit_en="A Snail's Day (pp. 24-25)", schedule="2026-10-21T09:00:00+09:00"),
+    dict(src="통합교과_건강한하루2627p_1학년_함께골라요_팔팔이와뒹굴의콩콩건강한하루",
+         unit_en="A Healthy Day (pp. 26-27)", schedule="2026-10-23T09:00:00+09:00"),
+    dict(src="통합교과_마음의하루2829p_1학년_함께골라요_무지의색깔하루",
+         unit_en="A Day of Feelings (pp. 28-29)", schedule="2026-10-28T09:00:00+09:00"),
+    dict(src="통합교과_하루저금통3031p_1학년_함께골라요_삐요와토토의반짝반짝하루저금통",
+         unit_en="The Everyday Savings Jar (pp. 30-31)", schedule="2026-10-30T09:00:00+09:00"),
+    dict(src="통합교과_하루의시작3233p_1학년_함께골라요_부엉이와꼬꼬의아침일과",
+         unit_en="The Start of the Day (pp. 32-33)", schedule="2026-11-04T09:00:00+09:00"),
+    dict(src="통합교과_모두의하루3435p_1학년_함께골라요_삐요와토토마을의하루를찾아서",
+         unit_en="Everyone's Day (pp. 34-35)", schedule="2026-11-06T09:00:00+09:00"),
+    dict(src="통합교과_하루세번3637p_1학년_함께골라요_까까와냠냠의골고루하루",
+         unit_en="Three Times a Day (pp. 36-37)", schedule="2026-11-11T09:00:00+09:00"),
+    dict(src="통합교과_해야해야나오너라3839p_1학년_함께골라요_삐요와토토의그림자밟기",
+         unit_en="Come Out, Sunshine! (pp. 38-39)", schedule="2026-11-13T09:00:00+09:00"),
+    dict(src="통합교과_하루의리듬4041p_1학년_함께골라요_통통이와짤랑이의하루리듬",
+         unit_en="The Rhythm of the Day (pp. 40-41)", schedule="2026-11-18T09:00:00+09:00"),
+]
+
+UNITS = {
+    "sangsang": dict(episodes=EPISODES_SANGSANG, series="Imagination", log="_en_batch_log.json"),
+    "haru":     dict(episodes=EPISODES_HARU,     series="Our Day",     log="_en_haru_batch_log.json"),
+}
+
+# build_en_description 이 참조하는 현재 단원명 (main 에서 --unit 으로 설정)
 SERIES_EN = "Imagination"
 
 LOG_PATH = ROOT / "_en_batch_log.json"
@@ -199,7 +230,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None, help="앞에서 N편만 처리")
     ap.add_argument("--no-upload", action="store_true", help="생성만 하고 업로드 건너뜀")
+    ap.add_argument("--unit", choices=list(UNITS), default="sangsang",
+                    help="처리할 단원 (기본 sangsang)")
     args = ap.parse_args()
+
+    global SERIES_EN, LOG_PATH
+    cfg = UNITS[args.unit]
+    SERIES_EN = cfg["series"]          # 설명란의 'Topic:' 라벨
+    LOG_PATH = ROOT / cfg["log"]       # 단원별 업로드 기록 (중복 업로드 방지)
+    print(f"[INFO] 단원: {args.unit} ({SERIES_EN}) / 기록: {LOG_PATH.name}")
 
     log = load_log()
     creds = None
@@ -208,7 +247,7 @@ def main():
         py.retry(lambda: py.verify_channel("en", creds), "채널확인")  # 2026-09-12 사고 재발 방지 — 필수, 우회 불가
 
     out_root = ROOT / "output"
-    episodes = EPISODES[:args.limit] if args.limit else EPISODES
+    episodes = cfg["episodes"][:args.limit] if args.limit else cfg["episodes"]
     total = len(episodes)
 
     for i, ep in enumerate(episodes, 1):

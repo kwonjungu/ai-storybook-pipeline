@@ -230,6 +230,7 @@ def build_slide_mp4(
     *,
     is_first: bool = False,
     is_last: bool = False,
+    drift: float = 0.0,
 ) -> str:
     """한 장의 슬라이드 이미지를 Ken Burns + fade 효과가 적용된 mp4로 생성합니다.
 
@@ -250,6 +251,39 @@ def build_slide_mp4(
 
     # ── 커버 포함 모든 슬라이드: 원본 이미지 그대로 사용 ──
     actual_img = img_path
+
+    # ── 핵심 장면(11b) 최우선: anim/key_slide_XX.mp4 — 슬라이드 길이와 같은 무음 클립, 대사에 입이 맞춰져 있음 ──
+    #    클립 안 대사 위치는 '명목 시작(이전 슬라이드 end)' 기준. 앞 슬라이드들의 프레임 반올림이 쌓여
+    #    이 슬라이드의 실제 시작이 명목보다 drift 초 늦으면(빠르면) 그만큼 앞을 잘라(복제해) 오디오에 맞춘다.
+    if actual_img:
+        m = _re.search(r"slide_(\d+)", Path(actual_img).stem)
+        key_clip = (Path(actual_img).parent.parent / "anim" / f"key_slide_{int(m.group(1)):02d}.mp4") if m else None
+        if key_clip and key_clip.exists():
+            pre = []
+            if drift > 0.0005:
+                pre.append(f"trim=start={drift:.4f},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration={drift + 0.1:.4f}")
+            elif drift < -0.0005:
+                pre.append(f"tpad=start_mode=clone:start_duration={-drift:.4f}")
+            vf_parts = pre + [
+                f"scale={W}:{H}:force_original_aspect_ratio=decrease,"
+                f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps={FPS}"
+            ]
+            if is_first:
+                vf_parts.append(f"fade=in:0:{FADE_FRAMES}")
+            if is_last:
+                fo = max(total_frames - FADE_FRAMES, FADE_FRAMES + 1)
+                vf_parts.append(f"fade=out:{fo}:{FADE_FRAMES}")
+            vf_parts.append("format=yuv420p")
+            cmd = [
+                "ffmpeg", "-y", "-i", ffmpeg_safe(key_clip),
+                "-vf", ",".join(vf_parts),
+                "-c:v", "libx264", "-crf", "20", "-preset", "ultrafast",
+                "-threads", "4", "-pix_fmt", "yuv420p", "-an",
+                "-t", f"{duration:.3f}", out_mp4,
+            ]
+            run_ffmpeg(cmd, label=f"slide_{idx:03d}(key)")
+            print(f"    [핵심 장면] {key_clip.name} 사용 (drift {drift:+.3f}s 보정)")
+            return out_mp4
 
     # ── 애니 클립 우선: anim/slide_XX.mp4 있으면 정지 이미지 대신 루프 사용 ──
     anim_clip = None
@@ -809,6 +843,8 @@ def assemble_video(
 
     slide_mp4s = []
     n_slides = len(image_files)
+    # 실제 누적 시작(앞 슬라이드 mp4 길이 합) vs 명목 시작(durations 합) — 핵심 장면 립싱크 정렬용
+    actual_t, nominal_t = 0.0, 0.0
     for i, (img, dur) in enumerate(zip(image_files, durations)):
         mp4 = build_slide_mp4(
             idx=i,
@@ -817,8 +853,12 @@ def assemble_video(
             img_path=img,
             duration=dur,
             tmp_dir=tmp_dir,
+            drift=actual_t - nominal_t,
         )
         slide_mp4s.append(mp4)
+        real = get_duration_ffprobe(mp4)
+        actual_t += real if real > 0 else dur
+        nominal_t += dur
         print(f"  슬라이드 {i:2d}: {dur:.1f}s OK")
 
     # ── 2단계: 표지 / 인트로 / 퀴즈 / 아웃트로 ──

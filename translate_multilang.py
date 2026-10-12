@@ -110,8 +110,9 @@ FIXED_NAME_ROMAN = {
 _HANGUL_RE = re.compile(r"[가-힣]")
 
 
-def romanize_names(names, lang: str) -> dict:
-    """등장인물 한국어 이름 → 읽기 쉬운 라틴 표기. 간판 캐릭터는 고정값 사용."""
+def romanize_names(names, lang: str, kinds: dict = None) -> dict:
+    """등장인물 한국어 이름 → 읽기 쉬운 라틴 표기. 간판 캐릭터는 고정값 사용.
+    kinds(dict)를 주면 새로 정한 이름의 종류(roman=로마자 / meaning=의미번역)를 채워 준다."""
     out, todo = {}, []
     for n in names:
         n = (n or "").strip()
@@ -132,7 +133,8 @@ def romanize_names(names, lang: str) -> dict:
             "개구리 아저씨 = uncle frog): do NOT romanize. Translate it naturally into the target "
             "language as a warm storybook name a child understands, for example Mother Magpie, Mr. Frog. "
             "A text-to-speech engine must read the result correctly. "
-            "Return ONLY a JSON object mapping each original name to its converted form. "
+            "Return ONLY a JSON object mapping each original name to an object "
+            '{"text": converted form, "kind": "roman" or "meaning"} (roman = case 1, meaning = case 2). '
             + json.dumps(todo, ensure_ascii=False)
         )
         try:
@@ -151,10 +153,62 @@ def romanize_names(names, lang: str) -> dict:
                 raw = raw.strip()
             if raw.endswith("```"):
                 raw = raw[:-3].strip()
-            out.update({k: v for k, v in json.loads(raw).items() if v})
+            for k, v in json.loads(raw).items():
+                if isinstance(v, dict):
+                    txt, kind = (v.get("text") or "").strip(), v.get("kind")
+                else:
+                    txt, kind = (str(v) if v else "").strip(), None
+                if not txt:
+                    continue
+                out[k] = txt
+                if kinds is not None:
+                    kinds[k] = kind if kind in ("roman", "meaning") else                         ("meaning" if re.search(r"\s", txt) else "roman")
         except Exception as e:
             print(f"  [WARN] 이름 로마자 변환 실패 — 원문 유지: {e}")
     return out
+
+
+LATIN_LANGS = ("en", "id", "es", "pt")
+
+
+def resolve_name_map(src_story_path: Path, data: dict, names, lang: str) -> dict:
+    """편별 이름표 고정: 한국어 story 의 meta.name_map[lang] 이 있으면 그대로 재사용하고,
+    없는 이름만 새로 정해 거기에 저장한다 (실행마다 Kongal/Kongali 처럼 달라지는 것 방지).
+    로마자형(kind=roman) 이름은 이미 다른 라틴 언어에서 정했으면 그걸 그대로 쓴다.
+    의미번역형(kind=meaning)은 언어별로 따로 정한다."""
+    meta = data.setdefault("meta", {})
+    nm = meta.setdefault("name_map", {})
+    kinds = meta.setdefault("name_map_kind", {})
+    cur = nm.setdefault(lang, {})
+    changed = False
+    todo = []
+    for n in names:
+        n = (n or "").strip()
+        if not n or not _HANGUL_RE.search(n) or n in cur:
+            continue
+        if n in FIXED_NAME_ROMAN:
+            cur[n] = FIXED_NAME_ROMAN[n]; kinds[n] = "roman"; changed = True
+            continue
+        shared = next((nm[l][n] for l in LATIN_LANGS if l != lang and n in nm.get(l, {})
+                       and kinds.get(n) == "roman"), None)
+        if shared:
+            cur[n] = shared; changed = True
+        else:
+            todo.append(n)
+    if todo:
+        new_kinds = {}
+        got = romanize_names(todo, lang, new_kinds)
+        for k, v in got.items():
+            cur[k] = v; kinds[k] = new_kinds.get(k, "roman"); changed = True
+    if changed and src_story_path is not None:
+        # 한국어 원본에는 meta.name_map / name_map_kind 만 추가 (다른 필드는 그대로)
+        raw = json.loads(src_story_path.read_text(encoding="utf-8"))
+        rm = raw.setdefault("meta", {})
+        rm["name_map"] = nm
+        rm["name_map_kind"] = kinds
+        src_story_path.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"  [이름표 저장] {src_story_path}")
+    return {n: cur[n] for n in names if n in cur}
 
 
 def apply_name_map(text: str, name_map: dict) -> str:
@@ -177,6 +231,16 @@ Rules:
 - Character names are ALREADY written in the Latin alphabet. Copy them EXACTLY as given,
   never re-spell, translate, or add doubled consonants to them
 - No special characters like ..., —, ― (use only periods and commas)
+- NEVER write sound-effect interjections as narration or dialogue (BOOM!, Thud!, Bang!, Click!, Pop!,
+  Pum!, Dor!, Bum! and the like). Sound effects are added later in audio editing. If the Korean has no
+  such interjection, do not invent one. Describe the action in words instead
+- Some texts contain markup tags: <w1>word</w1> wraps a sound-making word or action in the Korean
+  (rolling, fluttering, clapping, sparkling...). Keep the tag and wrap the EXACT matching word or short
+  phrase (1-3 words, same grammatical form as in your sentence) in your translation, for example
+  "The bean <w1>rolled</w1> in." If the translation has no natural counterpart, drop that tag and keep the text.
+  <s1/> marks a pause between two sentences. Keep it at the same sentence boundary, directly after the
+  sentence-ending punctuation. Never put a tag inside a quotation or in the middle of a sentence.
+  Copy tag names exactly (w1, s1, w2 ...). Do not add tags of your own
 - Return ONLY valid JSON, no extra text, no markdown
 
 Fields to translate:
@@ -218,10 +282,120 @@ def translate_texts(fields_dict: dict, lang: str, retries: int = 3) -> dict:
     raise RuntimeError(f"번역 실패: {retries}회 시도 후 포기")
 
 
-def translate_story(src_dir: Path, lang: str):
+# ── 효과음 이어받기 (2026-10-12) ───────────────────────────
+# 한국어 story 의 의성어 효과음 이벤트(sfx 필드 / audio/sfx_events.json / 텍스트 감지)를 번역본 세그먼트의 `sfx` 필드로 옮긴다.
+# start/end 는 그대로, 문장 사이(<sN/>)·겹쳐 깔기(<wN>낱말</wN>)는 번역 때 표식으로 대응 위치를 받아오고,
+# 대응을 못 찾으면 그 이벤트는 삭제한다 (엉뚱한 자리에서 소리 나는 것보다 없는 게 낫다).
+def plan_sfx(src_dir: Path, data: dict) -> dict:
+    """{(slide, seg): [event, ...]} -- 아직 sfx_prep 을 안 거친 편이면 data 의 한국어 텍스트는 의성어를 지운 상태로 바뀐다(메모리만)."""
+    import sfx_prep
+    ev_p = src_dir / "audio" / "sfx_events.json"
+    events = None
+    if ev_p.exists():
+        try:
+            doc = json.loads(ev_p.read_text(encoding="utf-8"))
+            if doc.get("text_done"):
+                events = doc.get("events", [])
+        except Exception:
+            events = None
+    if events is None:  # sfx_prep 을 안 거친 한국어 편: 메모리에서 같은 규칙으로 감지
+        events = []
+        for sl in data.get("slides", []):
+            n = sl.get("slide_number")
+            for si, seg in enumerate(sl.get("tts_segments") or []):
+                if seg.get("sfx"):
+                    events.extend(sfx_prep.process_segment_field(n, si, seg))
+                elif seg.get("speaker", "narrator") == "narrator":
+                    new_text, evs = sfx_prep.process_segment_legacy(n, si, seg)
+                    seg["text"] = new_text
+                    events.extend(evs)
+    by = {}
+    for e in events:
+        by.setdefault((e["slide"], e["seg"]), []).append(e)
+    return by
+
+
+def mark_segment(text: str, evs: list):
+    """한국어 text 에 표식을 심는다 -> (표식 text, [mark dict])."""
+    marks, ins = [], []  # ins: (pos, kind, event)
+    for e in evs:
+        if e["mode"] == "pre":
+            marks.append({"kind": "start", "type": e["sfx"], "count": len(e.get("offsets") or [1])})
+        elif e["mode"] == "post":
+            marks.append({"kind": "end", "type": e["sfx"], "count": len(e.get("offsets") or [1])})
+        elif e["mode"] == "gap":
+            idx = (e.get("prep") or {}).get("after_index")
+            if idx is None or idx <= 0 or idx >= len(text.rstrip()):
+                continue
+            ins.append((idx, "s", e))
+        elif e["mode"] == "word":
+            k = text.find(e.get("word", ""))
+            if e.get("word") and k >= 0:
+                ins.append((k, "w", e))
+    n = 0
+    marked = text
+    for pos, kind, e in sorted(ins, key=lambda t: -t[0]):
+        n += 1
+        mid = f"{kind}{n}"
+        if kind == "s":
+            marked = marked[:pos].rstrip() + f" <{mid}/> " + marked[pos:].lstrip()
+        else:
+            w = e["word"]
+            marked = marked[:pos] + f"<{mid}>{w}</{mid}>" + marked[pos + len(w):]
+        marks.append({"kind": "gap" if kind == "s" else "word", "type": e["sfx"], "id": mid})
+    return marked, marks
+
+
+_END_PUNCT = tuple(".?!…\"”'’)")
+
+
+def resolve_segment(translated: str, marks: list, lang: str = None, names=()):
+    """번역문에서 표식을 걷어 -> (최종 text, sfx 필드 목록, 버린 표식 수). 대응을 못 찾은 표식은 이벤트째 삭제."""
+    sfx, dropped = [], 0
+    text = translated
+    if lang:  # 모델이 규칙을 어기고 쓴 소리 흉내 감탄("Snap!", "¡Pum!")은 대사에서 뺀다 (효과음은 sfx 필드가 맡는다)
+        import sfx_prep
+        if lang in sfx_prep.LATIN_LEX:
+            for a, b, _ in reversed(sfx_prep.find_replace_runs_latin(text, lang, names)):
+                rest = (text[:a] + text[b:]).strip()
+                if re.search(r"[A-Za-zÀ-ÿ]", rest):
+                    text = (text[:a].rstrip() + " " + text[b:].lstrip()).strip()
+    for m in [m for m in marks if m["kind"] in ("gap", "word")]:
+        mid = m["id"]
+        if m["kind"] == "gap":
+            mt = re.search(r"\s*<%s\s*/>\s*" % mid, text)
+            if not mt:
+                dropped += 1
+                continue
+            pre, post = text[:mt.start()].rstrip(), text[mt.end():].lstrip()
+            text = (pre + " " + post).strip()
+            if not pre or not pre.endswith(_END_PUNCT):
+                dropped += 1
+            elif not post:
+                sfx.append({"type": m["type"], "where": "end", "count": 1})
+            else:
+                sfx.append({"type": m["type"], "where": "after", "after_text": pre, "count": 1})
+        else:
+            mt = re.search(r"<%s>(.*?)</%s>" % (mid, mid), text, re.S)
+            if not mt:
+                dropped += 1
+                continue
+            w = mt.group(1).strip()
+            text = text[:mt.start()] + mt.group(1) + text[mt.end():]
+            if w and len(w.split()) <= 4 and w in text:
+                sfx.append({"type": m["type"], "where": "word", "word": w})
+            else:
+                dropped += 1
+    text = re.sub(r"</?[sw]\d+\s*/?>", "", text)  # 남은 표식 제거
+    text = re.sub(r"[ \t]{2,}", " ", text).strip()
+    simple = [{"type": m["type"], "where": m["kind"], "count": m["count"]} for m in marks if m["kind"] in ("start", "end")]
+    return text, simple + sfx, dropped
+
+
+def translate_story(src_dir: Path, lang: str, dst_dir: Path = None, copy_anim: bool = False):
     cfg = LANG_CONFIG[lang]
     src_story = src_dir / "story.json"
-    dst_dir = src_dir.parent / f"{src_dir.name}_{lang}"
+    dst_dir = Path(dst_dir) if dst_dir else src_dir.parent / f"{src_dir.name}_{lang}"
     dst_story = dst_dir / "story.json"
 
     print(f"\n{'='*60}")
@@ -240,7 +414,7 @@ def translate_story(src_dir: Path, lang: str):
     for c in (chars.get("supporting") or {}).values():
         if isinstance(c, dict) and c.get("name"):
             cand.append(c["name"])
-    name_map = romanize_names(cand, lang)
+    name_map = resolve_name_map(src_story, data, cand, lang)
     if name_map:
         print("[0] 이름 로마자: " + ", ".join(f"{k}→{v}" for k, v in name_map.items()))
 
@@ -260,12 +434,17 @@ def translate_story(src_dir: Path, lang: str):
 
     # ── slides 번역 ────────────────────────────────────────
     print("[2] slides 번역...")
+    sfx_by = plan_sfx(src_dir, data)
+    seg_marks = {}
     slide_fields = {}
     for s in data["slides"]:
         n = s["slide_number"]
         slide_fields[f"slide_{n}_text"] = s["text"]
         for i, seg in enumerate(s.get("tts_segments", [])):
-            slide_fields[f"slide_{n}_tts_{i}"] = seg["text"]
+            mk_text, mk = mark_segment(seg["text"], sfx_by.get((n, i), []))
+            seg_marks[(n, i)] = mk
+            slide_fields[f"slide_{n}_tts_{i}"] = mk_text
+    print(f"    효과음 이벤트 {sum(len(v) for v in sfx_by.values())}개 이어받기 대상")
     slide_tr = tr(slide_fields)
 
     # ── shorts_strategy 번역 ───────────────────────────────
@@ -310,8 +489,8 @@ def translate_story(src_dir: Path, lang: str):
         if isinstance(c, dict) and c.get("name") in name_map:
             c["name"] = name_map[c["name"]]
 
-    if lang == "en":
-        # 영어는 Typecast가 ko/en 둘 다 지원(ssfm-v30) → 기존 캐릭터 보이스 그대로 재사용
+    if lang in ("en", "es"):
+        # 영어·스페인어는 Typecast ssfm-v30이 지원(es는 2026-10-11 실측) → 기존 캐릭터 보이스 그대로 재사용
         # (같은 voice_id에 language="eng"만 바꿔 호출, 03_generate_tts.py --engine typecast)
         data["meta"].pop("supertone_voices", None)
     else:
@@ -331,8 +510,13 @@ def translate_story(src_dir: Path, lang: str):
             s["text"] = slide_tr[key]
         for i, seg in enumerate(s.get("tts_segments", [])):
             tts_key = f"slide_{n}_tts_{i}"
+            seg.pop("sfx", None)  # 한국어 sfx 필드(after_text/word 가 한국어)는 그대로 못 쓴다
             if tts_key in slide_tr:
-                seg["text"] = slide_tr[tts_key]
+                seg["text"], new_sfx, nd = resolve_segment(slide_tr[tts_key], seg_marks.get((n, i), []), lang, list(name_map.values()))
+                if new_sfx:
+                    seg["sfx"] = new_sfx
+                if nd:
+                    print(f"    [효과음 삭제] {n}-{i}: 번역문에서 대응 위치를 못 찾은 표식 {nd}개")
             # voice 필드 확인 (Gemini/ElevenLabs용)
             if "speaker" in seg and "voice" not in seg:
                 seg["voice"] = seg["speaker"]
@@ -356,6 +540,11 @@ def translate_story(src_dir: Path, lang: str):
     dst_dir.mkdir(parents=True, exist_ok=True)
     dst_story.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[완료] story.json 저장: {dst_story}")
+
+    # ── 애니 클립 복사 (옵션) ─────────────────────────────
+    if copy_anim and (src_dir / "anim").exists() and not (dst_dir / "anim").exists():
+        shutil.copytree(src_dir / "anim", dst_dir / "anim")
+        print("[애니] anim 복사")
 
     # ── 이미지 복사 ────────────────────────────────────────
     src_images = src_dir / "images"
@@ -400,6 +589,8 @@ def translate_story(src_dir: Path, lang: str):
 def main():
     parser = argparse.ArgumentParser(description="한국어 story.json → 다국어 번역")
     parser.add_argument("--src", required=True, help="원본 폴더 경로 (예: output/bsl08)")
+    parser.add_argument("--dst", default=None, help="출력 폴더 직접 지정 (--lang 하나일 때만)")
+    parser.add_argument("--copy-anim", action="store_true", help="원본 anim/ 클립도 복사")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--lang", choices=list(LANG_CONFIG.keys()), help="대상 언어")
     group.add_argument("--all", action="store_true", help="en/pt/id/es 모두 번역")
@@ -413,7 +604,7 @@ def main():
     langs = list(LANG_CONFIG.keys()) if args.all else [args.lang]
 
     for lang in langs:
-        translate_story(src_dir, lang)
+        translate_story(src_dir, lang, Path(args.dst) if (args.dst and not args.all) else None, args.copy_anim)
 
     print("\n[완료] 모든 번역 작업 종료.")
 

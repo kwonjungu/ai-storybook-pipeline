@@ -938,6 +938,16 @@ def build(ep_dir: Path, mode: str) -> bool:
             continue
         print(f"[DONE] {candidate.name}  ({len(prs.slides)}페이지)")
 
+        # 자동 축소: 임베드 PNG → JPEG 재압축 (업로드·다운로드 딜레이 감소)
+        try:
+            import shrink_assets
+            old, new = shrink_assets.shrink_pptx(candidate)
+            if new < old:
+                print(f"[SHRINK] {candidate.name}: "
+                      f"{old/1e6:.1f}MB → {new/1e6:.1f}MB")
+        except Exception as e:
+            print(f"[SHRINK] 축소 건너뜀(원본 그대로 사용): {e}")
+
     return True
 
 

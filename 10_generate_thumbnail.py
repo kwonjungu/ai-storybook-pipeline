@@ -136,10 +136,14 @@ def _resolve_font_path() -> str | None:
 
 # Module-level resolved font path (set in main before use)
 _FONT_PATH: str | None = None
+_USE_LATIN_FONT = False  # main()에서 story 언어로 결정 (es·pt 등은 Jua에 악센트가 없음)
 
 
 def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     """결정된 폰트 경로에서 지정 크기로 폰트를 로드합니다."""
+    if _USE_LATIN_FONT:
+        from latin_font import latin_font
+        return latin_font(size)
     if _FONT_PATH is not None:
         try:
             return ImageFont.truetype(_FONT_PATH, size)
@@ -735,6 +739,9 @@ def main():
         print("[WARN] 사용 가능한 폰트를 찾지 못했습니다. 기본 폰트를 사용합니다.")
 
     story = load_story(ep_dir=ep_dir)
+    global _USE_LATIN_FONT
+    from latin_font import needs_latin_font
+    _USE_LATIN_FONT = needs_latin_font(story.get("meta", {}).get("language", "ko"))
     meta = story.get("meta", {})
 
     # Thumbnail data (with graceful defaults from meta)

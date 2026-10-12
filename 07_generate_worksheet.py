@@ -27,11 +27,13 @@ import argparse
 import base64
 import html as html_mod
 import io
+import hashlib
 import json
 import random
 import re
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 try:
@@ -216,6 +218,20 @@ ACTIVITY_POOL = {
 # 랜덤 선택 알고리즘
 # ══════════════════════════════════════════════════════════════════════════
 
+# v2.1 모드: activity_sheet 데이터(원문 근거 검증됨)가 있는 활동만 고른다.
+# 휴리스틱으로만 만들 수 있는 활동(끝말잇기·낱말찾기·별명·편지·나라면 등)은
+# 이야기와 무관한 낱말·원문에 없는 사실이 섞이는 결함원이라 제외(2026-09-26 전수조사).
+V21_POOL = {
+    "CHECK":    ["comprehension_quiz", "ox_quiz", "fill_blank"],
+    "GAME":     ["story_sequence", "syllable_order", "consonant_quiz"],
+    "CREATIVE": ["speech_bubble", "emotion_card"],
+}
+
+
+def has_v21(story: dict | None) -> bool:
+    return (story or {}).get("activity_sheet", {}).get("schema") == "2.1"
+
+
 def select_activities(grade: int, seed=None, story: dict | None = None) -> dict:
     """
     카테고리별 가중 랜덤으로 활동 선택.
@@ -224,6 +240,15 @@ def select_activities(grade: int, seed=None, story: dict | None = None) -> dict:
     rng = random.Random(seed)
     actual_seed = seed if seed is not None else rng.randint(0, 999999)
     rng = random.Random(actual_seed)
+
+    if has_v21(story):
+        return {
+            "p1_left":  rng.choice(V21_POOL["CHECK"]),
+            "p1_right": rng.choice(V21_POOL["GAME"]),
+            "p2_top":   rng.choice(V21_POOL["CREATIVE"]),
+            "p2_bottom": "drawing",
+            "seed_used": actual_seed,
+        }
 
     # v2 fill_blanks가 있으면 fill_blank를 1학년에게도 개방 (보기 상자 제공으로 난도 완화)
     fb_v2 = bool((story or {}).get("activity_sheet", {}).get("fill_blanks"))
@@ -337,9 +362,18 @@ def guess_species(*texts) -> str:
         if not t:
             continue
         for kw in _KO_SPECIES:
-            if kw in t:
-                # '아기 거북', '꼬마 달팽이'처럼 수식어까지 포함해 반환
+            if len(kw) <= 1:
+                # 한 글자 종('양'·'말'·'소'…)은 '영양 선생님'·'말하기'에 잘못 걸림 → 독립 어절만
+                m = re.search(r"(?:^|\s)" + kw + r"(?=$|[\s,.)이가은는을를의와과])", t)
+                if not m:
+                    continue
+                idx = m.start() + (1 if t[m.start()].isspace() else 0)
+            elif kw in t:
                 idx = t.find(kw)
+            else:
+                continue
+            if True:
+                # '아기 거북', '꼬마 달팽이'처럼 수식어까지 포함해 반환
                 pre = t[max(0, idx - 3):idx]
                 for mod in ("아기", "꼬마", "어린"):
                     if mod in pre:
@@ -694,6 +728,7 @@ def get_fill_blank_items(story: dict) -> list[dict]:
                 "sentence": sent,
                 "answer": (it.get("answer") or "").strip(),
                 "example": (it.get("example") or "").strip(),
+                "distractor": (it.get("distractor") or "").strip(),
                 "hint": "",
             })
         if len(items) >= 2:
@@ -732,6 +767,13 @@ def get_consonant_items(story: dict) -> list[dict]:
     v2: activity_sheet.wordplay.consonant_words가 있으면 그 낱말을 사용.
     폴백: 캐릭터 이름 + 주제어 휴리스틱."""
     wp = story.get("activity_sheet", {}).get("wordplay", {})
+    ci = wp.get("consonant_items") if isinstance(wp, dict) else None
+    if isinstance(ci, list):
+        v21 = [it for it in ci if isinstance(it, dict) and (it.get("word") or "").strip()]
+        if len(v21) >= 3:
+            return [{"consonants": to_consonants(it["word"].strip()),
+                     "hint": (it.get("hint") or "").strip(), "answer": it["word"].strip()}
+                    for it in v21[:4]]
     cw = wp.get("consonant_words") if isinstance(wp, dict) else None
     if isinstance(cw, list):
         v2_words = [w.strip() for w in cw if isinstance(w, str) and w.strip()]
@@ -769,7 +811,23 @@ def get_word_chain_starts(story: dict) -> list[str]:
 
 
 def get_emotion_scenes(story: dict) -> list[dict]:
-    """감정을 느끼는 장면 추출."""
+    """감정을 느끼는 장면 추출.
+    v2.1: activity_sheet.mood_items({speaker,situation,choices,answer}) — 인물·상황이 명시된
+          장면만 (교훈문·배경 묘사로 기분을 고르게 하던 결함 제거)."""
+    mi = story.get("activity_sheet", {}).get("mood_items")
+    if isinstance(mi, list) and mi:
+        out = []
+        for it in mi:
+            if not isinstance(it, dict):
+                continue
+            spk = (it.get("speaker") or "").strip()
+            sit = (it.get("situation") or "").strip()
+            ch = [c for c in (it.get("choices") or []) if isinstance(c, str)]
+            if spk and sit and len(ch) >= 3:
+                out.append({"speaker": spk, "situation": sit, "choices": ch[:4],
+                            "answer": (it.get("answer") or "").strip()})
+        if len(out) >= 2:
+            return out[:3]
     EMOTIONS = ["기쁨", "슬픔", "설렘", "걱정", "용기", "뿌듯함", "외로움", "따뜻함", "놀람", "부끄러움"]
     slides = story.get("slides", [])
     n1, n2 = _main_names(story)
@@ -1170,7 +1228,14 @@ def render_comprehension_quiz(story: dict, **_) -> tuple[str, list]:
   <div class="cq-q"><span class="num-badge">{i + 1}</span>{text}</div>
   <div class="cq-lines"><div class="cq-line"></div><div class="cq-line"></div></div>
 </div>"""
-    answers = [{"label": f"{i+1}", "ans": q.get("answer", "")} for i, q in enumerate(qs)]
+    # v2.1: 정답은 원문으로 재확인한 quiz_review.answer 우선 (영상 정답이 원문과 어긋난 편 보정)
+    review = {r.get("q_index"): r for r in story.get("activity_sheet", {}).get("quiz_review", []) or []
+              if isinstance(r, dict)}
+    answers = []
+    for i, q in enumerate(qs):
+        r = review.get(i) or {}
+        ans = (r.get("answer") or q.get("answer", "") or "").strip()
+        answers.append({"label": f"{i+1}", "ans": ans})
     return f'<div class="cq-list">{items}</div>', answers
 
 
@@ -1190,10 +1255,16 @@ def render_ox_quiz(story: dict, rng: random.Random, **_) -> tuple[str, list]:
     return f'<div class="ox-list">{html}</div>', answers
 
 
-def render_fill_blank(story: dict, **_) -> tuple[str, list]:
+def render_fill_blank(story: dict, rng: random.Random | None = None, **_) -> tuple[str, list]:
     items = get_fill_blank_items(story)
-    # v2 example(보기)이 하나라도 있으면 상단에 보기 상자 표시 (1학년 백지 공포 완화)
-    examples = [it.get("example", "") for it in items if it.get("example")]
+    # 보기 상자: v2.1은 정답 + 오답(distractor)을 섞어 제시 — 보기가 곧 정답표가 되지 않게.
+    #           (구 v2는 example만 있어 보기=정답이었음)
+    if any(it.get("distractor") for it in items):
+        examples = [it["answer"] for it in items if it.get("answer")] +                    [it["distractor"] for it in items if it.get("distractor")]
+        examples = list(dict.fromkeys(examples))
+        (rng or random.Random(0)).shuffle(examples)
+    else:
+        examples = [it.get("example", "") for it in items if it.get("example")]
     box_html = ""
     if examples:
         chips = "".join(f'<span class="fill-ex-chip">{html_mod.escape(e)}</span>' for e in examples)
@@ -1332,9 +1403,10 @@ def render_story_sequence(story: dict, rng: random.Random, **_) -> tuple[str, li
         seq = [it for it in v2 if (it.get("text") or "").strip()][:5]
         if len(seq) >= 3:
             display = seq.copy()
-            for _ in range(20):
+            # 표시 순서가 정답 순서(order 1,2,3)와 같으면 문제가 안 됨 → 다시 섞기
+            for _ in range(30):
                 rng.shuffle(display)
-                if [s.get("label") for s in display] != [s.get("label") for s in seq]:
+                if [s.get("order") for s in display] != sorted(s.get("order") for s in display):
                     break
             rows = ""
             answers = []
@@ -1373,7 +1445,10 @@ def render_story_sequence(story: dict, rng: random.Random, **_) -> tuple[str, li
     correct_order = list(range(1, len(events) + 1))
     # 섞어서 출력 (순서 정답은 숨김 — 아이가 직접 번호 기입)
     display_order = list(range(len(events)))
-    rng.shuffle(display_order)
+    for _ in range(30):
+        rng.shuffle(display_order)
+        if display_order != sorted(display_order):
+            break
     # W3: 각 항목에 Ⓐ Ⓑ Ⓒ 라벨 표시 → 정답키('A. 2')와 대조 가능
     _CIRCLED = ["Ⓐ", "Ⓑ", "Ⓒ", "Ⓓ", "Ⓔ"]
     rows = ""
@@ -1466,6 +1541,9 @@ def render_emotion_card(story: dict, secondary: str, **_) -> tuple[str, list]:
     html = ""
     for i, sc in enumerate(scenes):
         q = html_mod.escape(sc["situation"])
+        if sc.get("speaker"):
+            q = f'<b>{html_mod.escape(sc["speaker"])}</b> — {q} <span class="emotion-ask">{html_mod.escape(sc["speaker"])}의 기분은?</span>'
+
         chips = "".join(
             f'<label class="emotion-chip"><input type="checkbox"><span>{html_mod.escape(e)}</span></label>'
             for e in sc["choices"]
@@ -1474,7 +1552,9 @@ def render_emotion_card(story: dict, secondary: str, **_) -> tuple[str, list]:
   <div class="emotion-q"><span class="num-badge">{i+1}</span>{q}</div>
   <div class="emotion-chips">{chips}</div>
 </div>"""
-    return f'<div class="emotion-list">{html}</div>', []
+    answers = [{"label": f"{i+1}", "ans": sc["answer"]} for i, sc in enumerate(scenes) if sc.get("answer")]
+    guide = '<div class="seq-guide">알맞은 기분에 ○표 해 보세요!</div>' if answers else ""
+    return f'<div class="emotion-list">{html}</div>{guide}', answers
 
 
 def render_speech_bubble(story: dict, secondary: str, **_) -> tuple[str, list]:
@@ -1576,18 +1656,32 @@ def render_drawing(story: dict, out_dir: Path | None = None,
         label1, label2 = "🏷️ 이름을 지어 주세요", "💬 소개 한 줄 (어디에 살까? 무엇을 잘할까?)"
         placeholder = "여기에 상상해서 그려요! ✏️"
 
+    # 그림틀 모양: v2.1 draw.frame (기본 둥근 사각). 알 모양은 알 차시에서만.
+    frame = (story.get("activity_sheet", {}).get("draw", {}) or {}).get("frame") or "rect"
+    if frame not in ("rect", "egg", "circle", "window", "plate"):
+        frame = "rect"
+    if frame == "window" and "창" not in prompt:
+        frame = "rect"   # 4칸 창문 틀은 '창문' 발문에만 (한 장면 그리기에 4칸 틀이 붙던 결함)
+    window_bars = '<div class="win-bar-v"></div><div class="win-bar-h"></div>' if frame == "window" else ""
+
     html = f"""<div class="draw-coach">
   {face_html}
   <div class="draw-bubble"><b>{html_mod.escape(n1)}</b>: “{html_mod.escape(prompt)}”</div>
 </div>
 <div class="imagine-row">
-  <div class="imagine-frame"><span class="draw-placeholder">{placeholder}</span></div>
+  <div class="imagine-frame frame-{frame}">{window_bars}<span class="draw-placeholder">{placeholder}</span></div>
   <div class="imagine-side">
     <div class="imagine-label">{label1}</div>
     <div class="draw-line"></div>
     <div class="imagine-label">{label2}</div>
     <div class="draw-line"></div>
     <div class="draw-line"></div>
+    <div class="imagine-label">🗣️ 내 그림을 소개해요</div>
+    <div class="intro-sentence">나는 <span class="intro-blank"></span> 을/를 그렸어요.</div>
+    <div class="intro-sentence">왜냐하면 <span class="intro-blank long"></span></div>
+    <div class="draw-line"></div>
+    <div class="imagine-label">⭐ 오늘 활동 별점 (색칠해요)</div>
+    <div class="star-row">☆ ☆ ☆ ☆ ☆</div>
     <div class="stamp-row">
       <div class="stamp">참<br>잘했어요</div>
       <div class="stamp">상상력<br>최고</div>
@@ -1751,6 +1845,13 @@ RENDERERS = {
 }
 
 
+ANSWER_TAG = {
+    "comprehension_quiz": "내용 문답", "ox_quiz": "OX", "fill_blank": "빈칸",
+    "story_sequence": "순서", "syllable_order": "글자 놓기", "consonant_quiz": "초성",
+    "emotion_card": "기분", "matching": "선 잇기",
+}
+
+
 def render_activity(act_id: str, story: dict, rng: random.Random,
                     primary: str, secondary: str, accent: str,
                     out_dir: Path | None = None) -> tuple[str, list]:
@@ -1761,7 +1862,8 @@ def render_activity(act_id: str, story: dict, rng: random.Random,
         return fn(story=story, rng=rng, primary=primary, secondary=secondary, accent=accent,
                   out_dir=out_dir)
     except Exception as e:
-        return f'<div class="act-error">렌더링 오류: {html_mod.escape(str(e))}</div>', []
+        # 예전엔 '렌더링 오류' div로 조용히 삼켜 깨진 활동지가 배포됨 → 실패로 올린다
+        raise RuntimeError(f"활동 렌더 실패 [{act_id}]: {e}") from e
 
 
 def build_act_html(act_id: str, story: dict, rng: random.Random,
@@ -1799,13 +1901,25 @@ def render_char_cards_html(chars: dict, story: dict, out_dir: Path,
             if isinstance(v, dict) and v.get("name"):
                 char_list.append((k, {"name": v["name"], "personality": v.get("role", ""), "species": v.get("species", "")}))
 
+    # v2.1 cast: 본문에 실제로 이름이 나오는 인물만 카드로 (이야기에 없는 '다람 코치'·
+    # '엄마 부엉이' 등이 소개되던 결함). meta에 없는 cast 인물은 이름 카드로 추가.
+    cast = [c for c in story.get("activity_sheet", {}).get("cast", []) or [] if isinstance(c, str)]
+    if cast:
+        char_list = [(k, ch) for k, ch in char_list if ch.get("name") in cast]
+        have = {ch.get("name") for _, ch in char_list}
+        for nm in cast:
+            if nm not in have:
+                char_list.append((f"cast_{nm}", {"name": nm, "personality": "", "species": ""}))
+        char_list = char_list[:5]
+
     cards = []
     used_slides: set = set()
     for key, ch in char_list:
         name = html_mod.escape(ch.get("name", ""))
-        desc = ch.get("personality", "").split(",")[0].strip()
-        if len(desc) > 22:
-            desc = desc[:22] + "..."
+        desc = re.split(r"[,.·(]", ch.get("personality", "") or "")[0].strip()
+        if len(desc) > 12:
+            # 잘라 붙이면 '모양 나라에서 온 살아'처럼 끊긴 말이 됨 → 긴 설명은 싣지 않음(종만 표시)
+            desc = ""
         # species 우선, 없으면 personality/role에서 종 복원 (카드에 종이 잘려 사라지는 문제 방지)
         species = ch.get("species", "") or guess_species(ch.get("personality", ""), ch.get("role", ""))
 
@@ -1921,11 +2035,17 @@ body {{
   font-size: 20px; font-weight: 900; color: {primary};
 }}
 .char-name {{ font-size: 13px; font-weight: 900; color: #1a2e40; word-break: keep-all; }}
-.char-desc {{ font-size: 10px; color: #5a6a88; margin-top: 1px; line-height: 1.4; }}
+.char-desc {{ font-size: 10px; color: #5a6a88; margin-top: 1px; line-height: 1.4; word-break: keep-all; }}
 
 /* 2행 (위아래 쌓기) - 활동은 자연 높이, 필러가 남는 공간 채움 */
 /* 페이지1: 필러 없이 두 활동이 남는 공간을 자연스럽게 나눠 가짐 (잘림 원천 차단) */
-.two-col {{ display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-height: 0; overflow: hidden; }}
+.two-col {{ display: flex; flex-direction: column; gap: 8px; flex: 0 1 auto; min-height: 0; overflow: hidden; }}
+/* 1쪽 하단 공백 흡수: 남는 높이만큼 늘고, 모자라면 줄 영역부터 줄어듦 */
+.reflect-act {{ flex: 1 1 0px; min-height: 96px; overflow: hidden; }}
+.reflect-body {{ display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-height: 0; }}
+.reflect-lines {{ flex: 1 1 0px; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 2px; padding-top: 4px; }}
+.reflect-lines .cq-line {{ flex-shrink: 0; }}
+.reflect-why {{ flex: 1 1 0px; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }}
 /* W12: 활동 카드가 콘텐츠보다 커도 상단에 큰 빈 공백이 생기지 않도록
    space-evenly(콘텐츠를 세로 중앙으로 밀어 상단 공백 유발) → flex-start(상단 정렬).
    카드 자체는 콘텐츠에 맞춰 높이를 갖고, 남는 공간은 카드 사이 gap이 흡수. */
@@ -2124,8 +2244,20 @@ body {{
   padding: 6px 10px; font-size: 11.5px; line-height: 1.45; color: #333; position: relative; }}
 .imagine-row {{ display: flex; gap: 12px; flex: 1 1 auto; min-height: 0; }}
 .imagine-frame {{ flex: 1 1 58%; min-height: 200px; border: 3px dashed {accent};
-  border-radius: 48% 48% 46% 46% / 58% 58% 40% 40%;  /* 알 모양 프레임 */
+  border-radius: 18px; position: relative;
   background: #fffdf8; display: flex; align-items: center; justify-content: center; }}
+/* 그림틀 모양 (activity_sheet.draw.frame) — 알 모양은 알 차시 전용 */
+.imagine-frame.frame-egg {{ border-radius: 48% 48% 46% 46% / 58% 58% 40% 40%; }}
+.imagine-frame.frame-circle {{ border-radius: 50%; aspect-ratio: 1 / 1; flex: 0 1 auto; align-self: center; width: 58%; min-height: 0; }}
+.imagine-frame.frame-plate {{ border-radius: 38% / 30%; }}
+.imagine-frame.frame-window {{ border-style: solid; border-width: 5px; border-radius: 14px 14px 6px 6px; }}
+.win-bar-v {{ position: absolute; left: 50%; top: 0; bottom: 0; border-left: 4px solid {accent}; }}
+.win-bar-h {{ position: absolute; top: 50%; left: 0; right: 0; border-top: 4px solid {accent}; }}
+.intro-sentence {{ font-size: 12px; color: #333; display: flex; align-items: flex-end; gap: 3px; margin-top: 4px; white-space: nowrap; }}
+.intro-blank {{ display: inline-block; flex: 0 0 70px; border-bottom: 1.5px solid {primary}80; height: 18px; }}
+.intro-blank.long {{ flex: 1 1 auto; }}
+.star-row {{ font-size: 22px; color: {accent}; letter-spacing: 4px; text-align: center; }}
+.emotion-ask {{ color: {primary}; font-weight: 700; font-size: 12px; margin-left: 4px; }}
 .imagine-side {{ flex: 1 1 42%; display: flex; flex-direction: column; gap: 5px; min-width: 0; }}
 .imagine-label {{ font-size: 10.5px; font-weight: 700; color: {primary}; margin-top: 2px; }}
 .stamp-row {{ display: flex; gap: 8px; margin-top: auto; padding-top: 6px; justify-content: flex-end; }}
@@ -2150,7 +2282,8 @@ body {{
 .answer-key {{ margin-top: auto; padding: 5px 10px; flex-shrink: 0; border: 1.5px dashed {primary}30; border-radius: 8px; background: {primary}04; transform: rotate(180deg); }}
 .ak-notice {{ font-size: 8px; color: {primary}70; text-align: center; margin-bottom: 2px; font-weight: 700; }}
 .ak-title {{ font-size: 8px; font-weight: 700; color: #ccc; letter-spacing: 2px; margin-bottom: 2px; text-align: center; }}
-.ak-body {{ font-size: 9px; color: #aaa; line-height: 1.6; }}
+.ak-body {{ font-size: 9px; color: #999; line-height: 1.6; }}
+.ak-body b {{ color: #888; }}
 .act-error {{ color: red; font-size: 11px; padding: 8px; }}
 
 @media screen {{
@@ -2174,8 +2307,9 @@ def build_html(story: dict, selection: dict, out_dir: Path) -> str:
     title = html_mod.escape(meta.get("story_title", meta.get("title", "동화")))
     unit_title = meta.get("unit_title", "")
     sub_unit = meta.get("sub_unit", "")
-    grade = meta.get("grade", 2)
-    subject = meta.get("subject", "국어")
+    # 교과 정보 기본값(2학년·국어) 폐지 — main()에서 누락 시 렌더 중단 (약속 10편 오표기 사고)
+    grade = meta.get("grade", "")
+    subject = meta.get("subject", "")
     series = meta.get("series", "")
 
     palette = meta.get("color_palette", {})
@@ -2183,7 +2317,7 @@ def build_html(story: dict, selection: dict, out_dir: Path) -> str:
     secondary = palette.get("secondary", "#7EC8A0")
     accent    = palette.get("accent", "#FFC53D")
 
-    css = build_css(primary, secondary, accent, grade)
+    css = build_css(primary, secondary, accent, grade if isinstance(grade, int) else 2)
     chars = meta.get("characters", {})
     char_cards_html = render_char_cards_html(chars, story, out_dir, primary, secondary, accent)
 
@@ -2199,16 +2333,43 @@ def build_html(story: dict, selection: dict, out_dir: Path) -> str:
     # 페이지1 필러 제거 — 두 활동이 flex로 페이지를 채움 (잘림·빈 박스 원천 차단)
     filler_html = ""
 
-    # 정답
-    all_answers = p1l_ans + p1r_ans + p2t_ans
-    # 정답키는 180° 회전 영역이라 여러 줄이 무방 — 38자 절단 제거하고 전문 표시
-    answer_parts = [f"{a['label']}. {html_mod.escape(str(a['ans']))}"
-                    for a in all_answers if a.get("ans")]
-    answers_html = " &nbsp;|&nbsp; ".join(answer_parts) if answer_parts else "—"
+    # 정답 — 활동별로 묶어 표기 (서로 다른 활동의 1·2·3이 이어져 헷갈리던 결함)
+    groups = []
+    for act_id, ans in ((selection["p1_left"], p1l_ans), (selection["p1_right"], p1r_ans),
+                        (selection["p2_top"], p2t_ans)):
+        parts = [f"{a['label']}. {html_mod.escape(str(a['ans']))}" for a in ans if a.get("ans")]
+        if parts:
+            short = ANSWER_TAG.get(act_id, ACTIVITY_POOL.get(act_id, {}).get("title", act_id))
+            note = " (예시답)" if act_id == "comprehension_quiz" else ""
+            groups.append(f"<b>[{short}{note}]</b> " + " · ".join(parts))
+    answers_html = "<br>".join(groups) if groups else "정답이 따로 없는 활동이에요. 자유롭게 써요!"
+    ak_note = (" (문답은 예시답이에요 — 비슷한 뜻이면 정답!)"
+               if "comprehension_quiz" in (selection["p1_left"], selection["p1_right"], selection["p2_top"]) else "")
+
+    # 1쪽 하단 공백 채우기: 생각 나누기 카드 (남는 높이를 흡수, 모자라면 줄 수만 줄어듦)
+    # 약속 단원은 '나의 약속' 문장으로 차시 활동(실천 약속 정하기)과 연결
+    if series == "약속":
+        second = '<div class="intro-sentence">이야기 속 친구들처럼 나도 약속해요: 나는 <span class="intro-blank long"></span></div>'
+        why = "그 약속을 지키면 무엇이 좋아질까요?"
+    else:
+        second = '<div class="intro-sentence">이야기를 읽고 나는 <span class="intro-blank"></span> 마음이 들었어요.</div>'
+        why = "왜 그렇게 생각했는지 써 보세요."
+    lines = "".join('<div class="cq-line"></div>' for _ in range(12))
+    reflect_html = f"""<div class="act c-purple reflect-act">
+  <div class="act-title">💭 이야기를 읽고 생각을 나눠요!</div>
+  <div class="reflect-body">
+    <div class="intro-sentence">이 이야기에서 가장 기억에 남는 장면은 <span class="intro-blank long"></span> 장면이에요.</div>
+    {second}
+    <div class="reflect-why">
+      <div class="imagine-label">{why}</div>
+      <div class="reflect-lines">{lines}</div>
+    </div>
+  </div>
+</div>"""
 
     # 배지
-    grade_badge = f'<span class="badge">초등 {grade}학년</span>'
-    subject_badge = f'<span class="badge">{html_mod.escape(subject)}</span>'
+    grade_badge = f'<span class="badge">초등 {grade}학년</span>' if grade != "" else ""
+    subject_badge = f'<span class="badge">{html_mod.escape(subject)}</span>' if subject else ""
     series_badge = f'<span class="badge alt">{html_mod.escape(series)}</span>' if series else ""
     unit_badge = f'<span class="badge alt">{html_mod.escape(unit_title)}</span>' if unit_title else ""
     sub_unit_html = f'<div class="sub">{html_mod.escape(sub_unit)}</div>' if sub_unit else ""
@@ -2250,10 +2411,8 @@ def build_html(story: dict, selection: dict, out_dir: Path) -> str:
     {p1l_html}
     {p1r_html}
   </div>
-
-  <div class="page-footer">
-    <span class="footer-msg">☆ 오늘도 열심히 읽었어요! ☆ &nbsp;[seed: {seed_used}]</span>
-  </div>
+  {reflect_html}
+  <!-- seed: {seed_used} -->
 
 </div>
 
@@ -2271,13 +2430,19 @@ def build_html(story: dict, selection: dict, out_dir: Path) -> str:
   {p2b_html}
 
   <div class="answer-key">
-    <div class="ak-notice">정답은 거꾸로 있어요! 다 풀고 확인해요 😊</div>
+    <div class="ak-notice">정답은 거꾸로 있어요! 다 풀고 확인해요 😊{ak_note}</div>
     <div class="ak-title">정 &nbsp; 답</div>
     <div class="ak-body">{answers_html}</div>
   </div>
 
 </div>
 
+<script>
+document.querySelectorAll('.reflect-why').forEach(function (w) {{
+  var l = w.querySelector('.reflect-lines');
+  if (!l || l.clientHeight < 60) {{ w.style.display = 'none'; }}
+}});
+</script>
 </body>
 </html>"""
 
@@ -2330,6 +2495,8 @@ def main():
     parser.add_argument("--seed", type=int, default=None,
                         help="랜덤 시드 (미지정 시 매번 다른 활동 조합)")
     parser.add_argument("--no-pdf", action="store_true")
+    parser.add_argument("--allow-heuristic", action="store_true",
+                        help="activity_sheet v2.1 없이 구 휴리스틱으로 렌더 (배포용 금지)")
     args = parser.parse_args()
 
     if args.dir_path:
@@ -2345,7 +2512,20 @@ def main():
         print(f"[ERROR] story.json 없음: {out_dir / 'story.json'}", file=sys.stderr)
         sys.exit(1)
 
-    grade = story.get("meta", {}).get("grade", 2)
+    meta = story.get("meta", {})
+    # 교과 정보 필수 (no_textbook 편 제외) — 기본값으로 '2학년·국어'가 찍히던 사고 방지
+    if meta.get("language", "ko") == "ko" and not meta.get("no_textbook"):
+        missing = [k for k in ("grade", "subject", "series", "unit_title") if not meta.get(k)]
+        if missing:
+            print(f"[ERROR] story.json meta에 교과 정보 없음: {missing}\n"
+                  f"  → meta를 채우거나 교과 무관 편이면 meta.no_textbook=true", file=sys.stderr)
+            sys.exit(2)
+    if not has_v21(story) and not args.allow_heuristic:
+        print(f"[ERROR] activity_sheet v2.1 없음 → 먼저 실행: python gen_activity_v2.py --dir {out_dir}\n"
+              f"  (구 휴리스틱 렌더는 --allow-heuristic, 배포용 금지)", file=sys.stderr)
+        sys.exit(3)
+
+    grade = meta.get("grade", 2)
     selection = select_activities(grade, seed=args.seed, story=story)
 
     print(f"\n[활동 선택] seed={selection['seed_used']}")
@@ -2364,6 +2544,17 @@ def main():
     if not args.no_pdf:
         print("[INFO] PDF 변환 중...")
         pdf_ok = html_to_pdf(html_path, pdf_path)
+
+    # 렌더 기록 — 07a·배포 동기화(_resync_worksheets.py)가 이 md5로 '검사한 파일 = 올릴 파일'을 확인
+    manifest = {
+        "rendered_at": datetime.now().isoformat(timespec="seconds"),
+        "seed": selection["seed_used"],
+        "activities": {k: selection[k] for k in ("p1_left", "p1_right", "p2_top", "p2_bottom")},
+        "schema": story.get("activity_sheet", {}).get("schema"),
+        "pdf_md5": hashlib.md5(pdf_path.read_bytes()).hexdigest() if pdf_ok else None,
+    }
+    (out_dir / "worksheet_manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print(f"\n활동지 생성 완료")
     print(f"{'=' * 50}")

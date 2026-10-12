@@ -122,7 +122,10 @@ def compute_quiz_start(d: Path):
     if dur is None or dur <= 0:
         return None
     cover = COVER_DURATION if (d / "thumbnail_a.png").exists() or (d / "thumbnail_b.png").exists() else 0.0
-    return cover + dur
+    intro = 0.0   # _attach_intro.py 로 공통 인트로를 붙인 편 (2026-10-11~)
+    if (d / "intro.json").exists():
+        intro = float(json.load(open(d / "intro.json", encoding="utf-8")).get("sec", 0.0))
+    return intro + cover + dur
 
 
 # ─────────────────────────────────────────────────

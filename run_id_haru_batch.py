@@ -203,6 +203,11 @@ def main():
 
             audio_dir = dst_dir / "audio"
             if not (audio_dir / "timing.json").exists():
+                # 의성어 효과음 1단계 (번역본의 sfx 필드/어휘표 -> audio/sfx_events.json). 이벤트 없으면 무변화, 실패해도 계속
+                try:
+                    run([PY, "sfx_prep.py", "--dir", str(dst_dir)], cwd=ROOT)
+                except Exception as e:
+                    print(f"[WARN] sfx_prep 실패, 효과음 없이 계속: {e}")
                 run([PY, "03_generate_tts.py", "--dir", str(dst_dir)], cwd=ROOT)
             # TTS 세그먼트 완전성 게이트 (2026-09-14 사고 이후 필수)
             # Gemini TTS 가 간헐적으로 빈 응답을 줘 대사가 통째로 빠진 영상이 업로드된 적이 있다.
@@ -211,7 +216,9 @@ def main():
             if not ensure_complete(dst_dir, retries=2, python_exe=PY):
                 raise RuntimeError("TTS 세그먼트 결손 — 조립·업로드 중단")
 
+            run([PY, "sfx_prep.py", "--dir", str(dst_dir), "--pad"], cwd=ROOT)   # 효과음 자리 확보 (이벤트 없으면 통과)
             run([PY, "04_concat_audio.py", "--dir", str(dst_dir)], cwd=ROOT)
+            run([PY, "sfx_mix.py", "--dir", str(dst_dir)], cwd=ROOT)             # 효과음 믹스 (이벤트 없으면 통과)
             run([PY, "05_generate_srt.py", "--dir", str(dst_dir)], cwd=ROOT)
             run([PY, "07b_generate_quiz_slides.py", "--dir", str(dst_dir)], cwd=ROOT)
             run([PY, "10_generate_thumbnail.py", "--dir", str(dst_dir)], cwd=ROOT)

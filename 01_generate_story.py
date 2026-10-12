@@ -1172,6 +1172,295 @@ BSL_EPISODES = {
             "Korean children's picture book illustration quality"
         ),
     },
+    # ── 상상 12~20차시 (40-57p), 2026-10-11 추가 ──
+    'bsl28': {'grade': 1,
+     'semester': 2,
+     'subject': '통합교과',
+     'series': '상상',
+     'unit': '',
+     'sub_unit': '함께 골라요',
+     'achievement_standard': '',
+     'unit_title': '우리 반에 공룡이 나타난다면 (40-41p)',
+     'story_direction': "삐요와 토토 시리즈. 숲속 동물 학교 교실에서 삐요와 토토가 공룡 그림책을 읽다가 '우리 교실에 진짜 공룡이 나타나면 어떨까?' 상상하는 순간, 책장 "
+                        "사이에서 아기 초식 공룡 '뿌뿌'가 쿵! 하고 튀어나온다. 처음엔 깜짝 놀라 숨지만(공룡을 만나면 어떤 기분일까), 뿌뿌가 친구를 찾아 왔다는 걸 알고 함께 "
+                        "놀기로 한다. ① 교실 공룡 관찰하기 — 뿌뿌를 가까이에서, 멀리서, 아래에서 살펴보며 '꼬리는 길고, 등에는 뾰족뾰족 판이 있고, 발자국은 내 얼굴보다 "
+                        "커!'라고 관찰한 것을 말로 표현, ② 교실에서 공룡이랑 하고 싶은 일 — 뿌뿌 등에 타고 미끄럼틀 타기, 긴 목으로 높은 선반의 공 꺼내기 (그런데 몸이 "
+                        '커서 책상이 쓰러지는 소동도!), ③ 뿌뿌의 가족을 찾아 상상 탐험 — 커다란 고사리가 우거진 정글 속 공룡들, 첨벙첨벙 물속에 사는 공룡들을 차례로 '
+                        '만난다. 강가에서 공룡 가족과 함께 물놀이를 하고 맛있는 열매를 나누어 먹은 뒤 뿌뿌는 가족과 함께 집으로 돌아간다. 교실로 돌아온 삐요와 토토는 오늘 '
+                        "상상한 이야기를 '그림일기'로 그려 친구들에게 소개한다. '상상하면 우리 교실도 공룡 나라가 될 수 있어!'라는 메시지. 마지막에 '너희 반에 공룡이 "
+                        "나타난다면 무엇을 하고 싶어? 그림일기로 그려 볼까?'라고 묻는 열린 결말. 1학년 눈높이, 공룡 의성어·의태어(쿵쿵, 첨벙첨벙, 우적우적, 뾰족뾰족)를 "
+                        '풍부하게.',
+     'world_setting': 'classroom_dinosaur_jungle',
+     'world_desc': '아늑한 숲속 동물 학교 교실(나무 책상, 그림책 책장, 칠판) → 커다란 고사리와 야자수가 우거진 초록 정글 → 맑은 강과 물속 공룡이 헤엄치는 호수',
+     'character_type': 'the SAME two main characters as previous episodes, identical designs: main_1 Ppiyo — a '
+                       'small fluffy round yellow chick with soft downy feathers, tiny orange beak and orange '
+                       'feet, big sparkling black eyes, wearing a little red mini backpack, short flappy wings, '
+                       'bright curious energetic expression; main_2 Toto — a small green baby turtle with a '
+                       'rounded shell patterned with soft teal and moss green hexagons, gentle calm eyes, '
+                       'wearing a small sky blue neckerchief, friendly relaxed smile, sturdy tiny legs. '
+                       'Supporting: Ppuppu — a friendly baby plant-eating dinosaur (stegosaurus-like) with soft '
+                       'mint-green skin, small rounded back plates in pastel orange, big gentle eyes, chubby '
+                       'legs, about three times taller than Toto; his kind dinosaur family; a wise owl teacher. '
+                       'CRITICAL: all characters must have ANIMAL faces and bodies — NOT human faces.',
+     'art_style_en': "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+                     'cozy classroom scenes blending into lush prehistoric jungle and clear river landscapes, '
+                     'friendly cute dinosaurs never scary, rounded adorable animal character designs, storybook '
+                     'composition with clear focal points, NEUTRAL to COOL color temperature with no '
+                     'yellow-amber cast, inspired by modern Korean picture books for 7-year-olds'},
+    'bsl29': {'grade': 1,
+     'semester': 2,
+     'subject': '통합교과',
+     'series': '상상',
+     'unit': '',
+     'sub_unit': '함께 골라요',
+     'achievement_standard': '',
+     'unit_title': '내가 음악을 만든다면 (42-43p)',
+     'story_direction': "새로운 주인공의 특별편 (삐요·토토와 다른 독립 이야기). 주인공은 노래를 잘하지만 마음을 노래에 담는 법을 모르는 아기 꾀꼬리 '랄라'와, 말수가 적어 "
+                        "기분을 말로 잘 못 하지만 늘 흥얼흥얼 허밍을 하는 아기 하마 '흥얼이'. 숲속 마을에 '기분 음악회'가 열려, 모두 자기 기분을 음악으로 만들어 들려줘야 "
+                        "한다. 랄라는 '나비야'를 정확하게만 부르고 '이건 무슨 기분이야?'라는 질문에 대답을 못 한다. 흥얼이가 랄라에게 비밀을 알려 준다: ① 허밍으로 기분 "
+                        "표현하기 — 기쁠 땐 높고 빠르게 '흠흠흠♪', 슬플 땐 낮고 느리게 '흐음~', 화날 땐 세고 쿵쿵하게 (같은 '나비야'도 기분에 따라 다르게 들리는 "
+                        "재미), ② 그림으로 음악 만들기 — 바위 위에 물감으로 동그라미를 그리면 '통!', 구불구불 선을 그리면 '스르르~', 세모를 그리면 '삐죽!' 소리가 "
+                        '나는 신기한 그림 악보, ③ 높고 낮은 소리로 멜로디 만들기 — 아래쪽은 낮은 소리, 위쪽은 높은 소리, 왼쪽에서 오른쪽으로 차례차례 이어 가며 나만의 '
+                        "노래를 완성. 음악회 날, 랄라와 흥얼이가 만든 음악을 듣고 친구들이 '이건 설레는 기분이다!' 하고 기분을 맞힌다. '음악은 마음을 전하는 또 하나의 "
+                        "말이야'라는 메시지. 마지막에 '오늘 너의 기분은 어떤 음악일까? 허밍으로 불러 볼래?'라고 묻는 열린 결말. 1학년 눈높이, 소리 흉내 말(흠흠, 통통, "
+                        '스르르, 삐죽)을 리듬감 있게.',
+     'world_setting': 'forest_feeling_concert',
+     'world_desc': '숲속 호숫가 음악회장 — 연잎 무대, 바위 위에 물감으로 그린 동그라미·선·세모가 반짝이며 소리를 내는 그림 악보, 공중에 떠다니는 알록달록 음표',
+     'character_type': 'NEW main characters for this special episode (NOT the chick and turtle): main_1 Lala — a '
+                       'small bright yellow baby oriole bird with a black eye stripe, round fluffy body, tiny '
+                       'pink beak, wearing a little lavender bow tie, upright proud posture; main_2 Heungeori — '
+                       'a chubby gentle baby hippo with soft lilac-grey skin, rosy cheeks, small round ears, '
+                       'closed-mouth humming smile, wearing a tiny teal knitted hat. Supporting: forest animal '
+                       'friends in the audience. CRITICAL: all characters must have ANIMAL faces — NOT human '
+                       'faces.',
+     'art_style_en': "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+                     'musical scenes where colorful painted shapes and floating music notes glow softly in the '
+                     'air, rounded adorable animal character designs, storybook composition with clear focal '
+                     'points, NEUTRAL to COOL color temperature with no yellow-amber cast, inspired by modern '
+                     'Korean picture books for 7-year-olds'},
+    'bsl30': {'grade': 1,
+     'semester': 2,
+     'subject': '통합교과',
+     'series': '상상',
+     'unit': '',
+     'sub_unit': '함께 골라요',
+     'achievement_standard': '',
+     'unit_title': '몸으로 말한다면 (44-45p)',
+     'story_direction': "새로운 주인공의 특별편. 주인공은 숲에서 제일가는 수다쟁이 아기 앵무새 '재잘이'와 몸짓 흉내를 잘 내는 아기 수달 '쏙쏙이'. 어느 날 재잘이가 감기에 "
+                        "걸려 목소리가 하나도 안 나온다! 말을 못 해 답답해하는 재잘이에게 쏙쏙이가 '몸으로 말하면 되지!'라며 방법을 알려 준다. ① 표정으로 말하기 — 활짝 "
+                        '웃는 얼굴, 입이 쑥 나온 얼굴, 눈이 동그래진 얼굴로 기쁨·속상함·놀람을 전하기, ② 몸으로 말하기 놀이 — 귀를 쫑긋 깡충깡충(토끼), 등을 동그랗게 '
+                        '메는 흉내(가방), 배를 문지르며 호호 매운 표정(떡볶이 파티 하고 싶은 기분)을 서로 맞히기, 운동·직업·음식도 몸으로 문제를 내며 깔깔 웃는다, ③ 함께 '
+                        '마임하기 — 숲 친구들이 모여 다 같이 팔을 뻗어 커다란 나무, 손을 잡고 출렁출렁 강물이 되어 보기. 그러다 숲에서 길을 잃은 아기 사슴을 만나는데, 너무 '
+                        "겁에 질려 말을 못 한다. 재잘이와 쏙쏙이가 몸짓과 표정으로 '괜찮아, 이쪽이야!'를 전해 아기 사슴을 엄마에게 데려다준다. '말이 없어도 표정과 몸짓으로 "
+                        "마음을 전할 수 있어'라는 메시지. 마지막에 '세상에서 말과 글자가 사라진다면 너는 몸으로 무엇을 말하고 싶어?'라고 묻는 열린 결말. 대사는 목소리가 "
+                        '나오는 쏙쏙이와 내레이터 중심으로, 재잘이는 몸짓 묘사로 표현. 1학년 눈높이, 몸짓 의태어(깡충깡충, 살금살금, 출렁출렁)를 풍부하게.',
+     'world_setting': 'forest_mime_meadow',
+     'world_desc': '햇살 가득한 강가 숲속 풀밭 — 둥근 바위 무대, 반짝이는 시냇물, 키 큰 나무들, 숲 친구들이 둘러앉아 몸짓 놀이를 구경하는 풍경',
+     'character_type': 'NEW main characters for this special episode (NOT the chick and turtle): main_1 Jaejari '
+                       '— a small chatty baby parrot with bright green and sky-blue feathers, a curved little '
+                       'orange beak, wearing a tiny striped knitted scarf around the neck (because of a cold); '
+                       'main_2 Ssokssoki — a playful baby otter with sleek chocolate-brown fur, cream belly, '
+                       'round whiskered face, very expressive paws and body, wearing a small yellow bandana. '
+                       'Supporting: a lost baby deer with white spots, its mother deer, forest friends. '
+                       'CRITICAL: all characters must have ANIMAL faces — NOT human faces.',
+     'art_style_en': "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+                     'expressive full-body gesture poses and clear readable facial expressions, sunny riverside '
+                     'meadow, rounded adorable animal character designs, storybook composition with clear focal '
+                     'points, NEUTRAL to COOL color temperature with no yellow-amber cast, inspired by modern '
+                     'Korean picture books for 7-year-olds'},
+    'bsl31': {'grade': 1,
+     'semester': 2,
+     'subject': '통합교과',
+     'series': '상상',
+     'unit': '',
+     'sub_unit': '함께 골라요',
+     'achievement_standard': '',
+     'unit_title': '숨바꼭질을 한다면 (46-47p)',
+     'story_direction': "새로운 주인공의 특별편 (삐요·토토와 다른 독립 이야기). 주인공은 숨바꼭질 술래만 하면 아무도 못 찾는 덜렁이 아기 너구리 '꼼지'와, 몸 색을 바꿔 "
+                        "어디든 숨는 숨기 천재 아기 카멜레온 '알록이'. 비가 와서 밖에서 놀 수 없는 날, 둘은 숲속 동물 학교 교실에서 '꼭꼭 숨어라' 노래를 부르며 숨바꼭질을 "
+                        "한다. 술래 꼼지가 '꼭꼭 숨어라, 머리카락 보일라!' 하고 눈을 뜨자, 알록이뿐 아니라 교실 물건들까지 살아나 함께 숨는다! 물건 친구들은 생김새로 힌트를 "
+                        "주며 숨는다: ① '빨간 모자를 쓰고 몸이 길쭉한 친구'(빨간 크레파스), ② '둥근 머리에 하얀 얼굴, 하얀 옷을 입은 친구'(두루마리 휴지), ③ '둥근 "
+                        "얼굴에 뾰족한 바늘 수염을 가진 친구'(벽시계). 덜렁이 꼼지는 처음엔 하나도 못 찾다가, 알록이가 알려 준 '자세히 보고 상상하기' 비법으로 하나씩 "
+                        "찾아낸다 (찾을 때마다 '찾았다!'). 마지막으로 초록 화분 옆에 초록색으로 변해 숨은 알록이까지 찾아낸다. 찾은 친구들과 함께 노랫말을 바꾸어 부른다: "
+                        "'꼭꼭 숨어라, 둥근 머리 찾았네, 기다란 몸 찾았네…'. 마지막엔 알록이가 '다섯 고개 놀이'를 낸다 — '동그란 얼굴이 귀여워요 / 계속 바쁘게 일해요 "
+                        "/ 아무 말 없이 째깍째깍 / 바늘이 두 개 있어요 / 아침에 일어날 시간을 알려 줘요' → 정답 시계! '익숙한 물건도 자세히 보고 상상하면 새로운 친구가 "
+                        "돼'라는 메시지. 마지막에 '너희 교실에는 어떤 물건 친구가 숨어 있을까? 다섯 고개 문제를 내 볼래?'라고 묻는 열린 결말. 1학년 눈높이, 숨바꼭질의 "
+                        '두근두근 긴장감과 의태어(살금살금, 쏙, 빼꼼)를 풍부하게.',
+     'world_setting': 'rainy_classroom_hide_and_seek',
+     'world_desc': '비 오는 날의 아늑한 숲속 동물 학교 교실 — 창밖 빗방울, 나무 책상과 사물함, 커튼 뒤, 책장 사이, 초록 화분, 귀여운 얼굴이 생긴 교실 물건들(크레파스, '
+                   '두루마리 휴지, 벽시계)',
+     'character_type': 'NEW main characters for this special episode (NOT the chick and turtle): main_1 Kkomji — '
+                       'a clumsy cheerful baby raccoon with soft grey fur, a black eye-mask pattern, a striped '
+                       'ringed tail, round curious eyes, wearing a small orange hoodie; main_2 Allogi — a tiny '
+                       'cute baby chameleon with a curled tail, big round swiveling eyes, gentle smile, '
+                       'mint-green body (can softly change color to blend in), wearing a tiny pink flower clip. '
+                       'Supporting: living classroom objects with tiny cute faces and stubby arms — a long red '
+                       'crayon with a red cap, a round white toilet-paper roll, a round wall clock with two '
+                       'pointy hands like whiskers. CRITICAL: all characters must have ANIMAL faces — NOT human '
+                       'faces.',
+     'art_style_en': "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+                     'cozy rainy-day classroom interiors with peek-a-boo hiding spots and cute anthropomorphic '
+                     'objects, rounded adorable animal character designs, storybook composition with clear focal '
+                     'points, NEUTRAL to COOL color temperature with no yellow-amber cast, inspired by modern '
+                     'Korean picture books for 7-year-olds'},
+    'bsl32': {'grade': 1,
+     'semester': 2,
+     'subject': '통합교과',
+     'series': '상상',
+     'unit': '',
+     'sub_unit': '함께 골라요',
+     'achievement_standard': '',
+     'unit_title': '거꾸로 생각한다면 (48-49p)',
+     'story_direction': "새로운 주인공의 특별편. 주인공은 마음이 뾰족해진 날 무엇이든 반대로만 하는 아기 청개구리 '꺼꾸리'와, 늘 나뭇가지에 거꾸로 매달려 세상을 보는 아기 박쥐 "
+                        "'대롱이'. 눈물이 찔끔 나고 괜스레 마음이 뾰족한 날, 꺼꾸리는 친구들이 '같이 놀자' 하면 '싫어!', '이쪽이야' 하면 저쪽으로 간다. 대롱이가 "
+                        '꺼꾸리를 나뭇가지에 함께 거꾸로 매달려 보게 한다: ① 거꾸로 보는 세상 — 하늘은 파란 땅, 땅은 커다란 하늘, 나무는 아래로 자라는 신기한 풍경에 '
+                        "꺼꾸리가 처음으로 웃는다 ('거꾸로 보는 세상' 노래처럼 뱅글뱅글), ② 거꾸로 말하기 놀이 — '운동장'은 '장동운', '토마토'는 거꾸로 해도 "
+                        "'토마토'! 깔깔 웃음이 터진다, ③ '거꾸로 말' 마법 — 막무가내로 우기고 싶을 땐 거꾸로 '네 말이 맞아!', 장난감을 혼자 독차지하고 싶을 땐 거꾸로 "
+                        "'내 건데 같이 쓰자', 짜증 난 표정을 거꾸로 하면 '히히' 웃는 얼굴. 꺼꾸리가 '거꾸로 말'을 해 보자 친구들과 다시 사이좋게 놀게 된다. '마음이 "
+                        "뾰족한 날엔 생각을 거꾸로 해 보면, 새로운 길이 보여'라는 메시지. 마지막에 '너는 어떤 마음을 거꾸로 바꾸어 보고 싶어?'라고 묻는 열린 결말. 1학년 "
+                        '눈높이, 말놀이와 의태어(뱅글뱅글, 대롱대롱, 폴짝)를 풍부하게.',
+     'world_setting': 'upside_down_pond_forest',
+     'world_desc': '연못가 숲 — 연잎이 둥둥 뜬 연못, 굵은 나뭇가지, 거꾸로 본 시점에서 하늘과 땅이 뒤바뀐 신기한 풍경, 노을 지는 하늘',
+     'character_type': 'NEW main characters for this special episode (NOT the chick and turtle): main_1 '
+                       'Kkeokkuri — a small bright green baby tree frog with big round golden eyes, a cream '
+                       'belly, slightly pouty grumpy expression at first, wearing a tiny red raincoat hood; '
+                       'main_2 Daerongi — a cute fluffy baby fruit bat with soft grey-brown fur, big round ears, '
+                       'gentle sleepy smile, small velvety wings, often hanging upside down from a branch, '
+                       'wearing a little mustard-yellow scarf. Supporting: pond friends (ducklings, a baby '
+                       'rabbit). CRITICAL: all characters must have ANIMAL faces — NOT human faces.',
+     'art_style_en': "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+                     'playful flipped upside-down viewpoints and whimsical inverted landscapes, calm pond '
+                     'scenery, rounded adorable animal character designs, storybook composition with clear focal '
+                     'points, NEUTRAL to COOL color temperature with no yellow-amber cast, inspired by modern '
+                     'Korean picture books for 7-year-olds'},
+    'bsl33': {'grade': 1,
+     'semester': 2,
+     'subject': '통합교과',
+     'series': '상상',
+     'unit': '',
+     'sub_unit': '함께 골라요',
+     'achievement_standard': '',
+     'unit_title': '거인 나라에 간다면 (50-51p)',
+     'story_direction': "새로운 주인공의 특별편 (삐요·토토와 다른 독립 이야기). 주인공은 몸은 작지만 겁이 없는 아기 생쥐 '콩알'과 조심성 많은 아기 무당벌레 '점점이'. "
+                        "'걸리버 여행기' 그림책을 읽은 날 밤, 커다란 편지 한 통이 날아온다 — '거인 나라에 초대합니다!' 구름다리를 건너 도착한 거인 나라에서는 모든 것이 "
+                        "어마어마하게 크다. 거인 친구인 아기 곰 '쿵쿵이'가 반갑게 맞아 준다 (쿵쿵이의 발 하나가 콩알과 점점이보다 훨씬 크다!). ① 거인 나라 구경 — 의자 "
+                        '다리는 나무 기둥 같고, 신발 가게의 운동화는 미끄럼틀 같고, 빵 한 조각은 폭신한 침대 같다, ② 거인 나라 음식점 — 숟가락 하나가 배처럼 커서 수프 '
+                        '위를 둥실둥실 타고 놀기, 콩 한 알을 둘이 함께 굴리기, ③ 작아서 좋은 점 — 쿵쿵이가 소파 밑에 떨어뜨린 작은 보물(반짝이 단추)을 작은 콩알과 '
+                        '점점이만 들어가 찾아 준다 (겁 많던 점점이가 용기를 내는 순간). ④ 거인과 함께 사진 찍기 — 쿵쿵이가 손바닥을 내밀고 콩알과 점점이가 그 위에 올라서는 '
+                        "듯한 재미있는 사진, 쿵쿵이 콧등에 앉은 사진을 찍으며 깔깔. '크기가 달라도 서로 도우면 멋진 친구가 될 수 있어'라는 메시지. 마지막에 '거인 나라에 "
+                        "간다면 너는 무엇을 해 보고, 어떤 사진을 찍고 싶어?'라고 묻는 열린 결말. 1학년 눈높이, 크기 대비가 잘 드러나는 표현(어마어마하게, 조그맣게, 쿵쿵, "
+                        '아장아장)을 풍부하게.',
+     'world_setting': 'giant_land_village',
+     'world_desc': '구름 위 거인 나라 마을 — 하늘까지 닿는 거대한 의자와 식탁, 미끄럼틀만 한 운동화가 놓인 신발 가게, 배만 한 숟가락과 수프 그릇이 있는 음식점, 작은 '
+                   '주인공들과의 크기 대비가 뚜렷한 장면',
+     'character_type': 'NEW main characters for this special episode (NOT the chick and turtle): main_1 Kongal — '
+                       'a tiny brave baby mouse with soft light-grey fur, big round pink ears, a long thin tail, '
+                       'bright eager eyes, wearing a little green explorer backpack; main_2 Jeomjeomi — a small '
+                       'cute baby ladybug with a glossy red round shell with black dots, big shy eyes, tiny '
+                       'antennae, wearing a small yellow scarf. Supporting: Kungkungi — a gentle GIANT baby '
+                       'brown bear with soft cocoa fur, round friendly face, rosy cheeks, wearing blue overalls, '
+                       'drawn enormous compared to the two tiny heroes (his paw is bigger than both of them '
+                       'together). CRITICAL: all characters must have ANIMAL faces — NOT human faces.',
+     'art_style_en': "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+                     'dramatic but friendly scale contrast between tiny heroes and giant objects, airy sky-blue '
+                     'cloud village, rounded adorable animal character designs, storybook composition with clear '
+                     'focal points, NEUTRAL to COOL color temperature with no yellow-amber cast, inspired by '
+                     'modern Korean picture books for 7-year-olds'},
+    'bsl34': {'grade': 1,
+     'semester': 2,
+     'subject': '통합교과',
+     'series': '상상',
+     'unit': '',
+     'sub_unit': '함께 골라요',
+     'achievement_standard': '',
+     'unit_title': '무엇이든 바꿀 수 있다면 (52-53p)',
+     'story_direction': "새로운 주인공의 특별편. 주인공은 말놀이를 좋아하는 꼬마 원숭이 '꼬리'와 무엇이든 꼼꼼히 관찰하는 아기 기린 '쭈욱이'. 꼬리가 '원숭이 엉덩이는 빨개~' "
+                        '말놀이 노래를 부르자, 신기하게도 노랫말대로 세상이 바뀌는 상상 여행이 시작된다: 빨가면 사과(커다란 사과 집) → 사과는 맛있어 → 맛있으면 바나나(바나나 '
+                        '보트) → 바나나는 길어 → 길면 기차(바나나 기차를 타고 칙칙폭폭) → 기차는 빨라 → 빠르면 비행기(하늘로 슝) → 비행기는 높아 → 높으면 백두산(구름 '
+                        '위 산꼭대기)! 산꼭대기에서 쭈욱이가 주운 탬버린 하나로 두 번째 놀이를 한다: ① 모양 — 동그란 모양은 거북이 등, 테두리는 멋진 사자 갈기, ② 소리 '
+                        '— 찰랑찰랑 소리는 아이스크림 먹는 기분, ③ 촉감 — 둥글고 튼튼해서 우주선! 탬버린이 정말 우주선으로 바뀌어 집으로 날아온다. 집에서는 지우개를 오감으로 '
+                        "관찰한다 — 눈(하얀 종이 옷), 코(고무 냄새), 귀(책상에 떨어질 때 '통'), 손(말랑말랑하지만 단단) → '지우개는 소보로빵 같아!' '같은 것도 "
+                        "생각을 바꾸면 무엇이든 될 수 있어'라는 메시지. 마지막에 '네 필통 속 물건은 무엇으로 바꾸어 상상할 수 있을까? 말놀이 노래를 만들어 볼래?'라고 묻는 "
+                        '열린 결말. 말놀이 노래의 반복 리듬을 살리고, 1학년 눈높이의 의성어(찰랑찰랑, 칙칙폭폭, 슝)를 풍부하게.',
+     'world_setting': 'word_chain_transform_world',
+     'world_desc': '말놀이에 따라 바뀌는 상상 세계 — 빨간 사과 집, 노란 바나나 기차가 달리는 철길, 하늘을 나는 비행기, 구름 위 높은 산꼭대기, 탬버린 우주선, 아늑한 원숭이네 '
+                   '나무집',
+     'character_type': 'NEW main characters for this special episode (NOT the chick and turtle): main_1 Kkori — '
+                       'a playful little monkey with warm tan fur, a peach-colored face and rosy-red cheeks, '
+                       'long curly tail, big cheeky grin, wearing a small green vest; main_2 Jjuugi — a gentle '
+                       'baby giraffe with cream fur and soft orange-brown patches, short ossicones, long '
+                       'eyelashes, curious thoughtful eyes, wearing round little glasses and a tiny blue bow. '
+                       'CRITICAL: all characters must have ANIMAL faces — NOT human faces.',
+     'art_style_en': "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+                     'whimsical transforming dreamscape scenes where objects morph into one another, playful '
+                     'motion, rounded adorable animal character designs, storybook composition with clear focal '
+                     'points, NEUTRAL to COOL color temperature with no yellow-amber cast, inspired by modern '
+                     'Korean picture books for 7-year-olds'},
+    'bsl35': {'grade': 1,
+     'semester': 2,
+     'subject': '통합교과',
+     'series': '상상',
+     'unit': '',
+     'sub_unit': '함께 골라요',
+     'achievement_standard': '',
+     'unit_title': '우리들의 놀이터를 만든다면 (54-55p)',
+     'story_direction': "삐요와 토토 시리즈 — 상상 단원 마무리 편. 동물 학교 앞 빈터에 '우리들의 놀이터'를 만들어도 된다는 소식! 삐요와 토토는 친구들과 함께 상상 놀이터를 "
+                        "만들기로 한다. ① 몸풀기 '스피드 상상 놀이' — 그림을 보고 3초 안에 떠오르는 것을 외치기 (노란 막대 → '단무지!', 동그라미 → '보름달!'), "
+                        '② 지금까지 함께한 상상 이야기 떠올리기 — 알에서 동물이 태어난다면, 상자에 물건이 들어 있다면, 동그라미가 살아난다면, 함께 간다면, 장난감이 춤을 '
+                        "춘다면, 여기저기에서 본다면 … 삐요와 토토의 그림책 앨범을 한 장씩 넘기며 추억한다, ③ 모둠별 상상 놀이 만들기 — 삐요 모둠은 '상상의 동물 "
+                        "놀이'(나만의 알을 그리고 어떤 동물이 태어날지 문제 내기), 토토 모둠은 '작은 세상 놀이'(돋보기로 개미 나라 구경하기); 친구들이 투표로 고르고 규칙을 "
+                        "정한다, ④ 놀이터 이름표 만들기 — '숲속 상상 동물원', '꼬마 세상 탐험대' 이름표를 알록달록 꾸민다. 놀이 중에 한 친구가 미끄럼틀을 거꾸로 올라가다 "
+                        "아찔할 뻔한 일이 생기고, 모두 '놀이터 약속'(차례 지키기, 뛰지 않기, 다치면 바로 알리기)을 함께 정한다. '상상은 친구와 함께하면 더 커지고 더 "
+                        "즐거워'라는 메시지. 마지막에 '너라면 어떤 상상 놀이터를 만들고 싶어? 이름도 지어 볼까?'라고 묻는 열린 결말. 1학년 눈높이, 신나는 놀이 "
+                        '의성어·의태어(슝, 깡충, 와글와글)를 풍부하게.',
+     'world_setting': 'imagination_playground_school',
+     'world_desc': '숲속 동물 학교 앞 햇살 가득한 빈터가 상상 놀이터로 바뀌는 모습 — 알 모양 미끄럼틀, 알록달록 손그림 이름표, 돋보기 탐험 코너, 지난 상상 그림책 장면이 담긴 '
+                   '앨범',
+     'character_type': 'the SAME two main characters as previous episodes, identical designs: main_1 Ppiyo — a '
+                       'small fluffy round yellow chick with soft downy feathers, tiny orange beak and orange '
+                       'feet, big sparkling black eyes, wearing a little red mini backpack, short flappy wings, '
+                       'bright curious energetic expression; main_2 Toto — a small green baby turtle with a '
+                       'rounded shell patterned with soft teal and moss green hexagons, gentle calm eyes, '
+                       'wearing a small sky blue neckerchief, friendly relaxed smile, sturdy tiny legs. '
+                       'Supporting: classmates — a baby rabbit, a baby squirrel, a baby raccoon, a baby duckling '
+                       '(simple cute designs); a wise owl teacher. CRITICAL: all characters must have ANIMAL '
+                       'faces and bodies — NOT human faces.',
+     'art_style_en': "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+                     'joyful sunny playground scenes full of hand-made colorful signs and imaginative play '
+                     'structures, rounded adorable animal character designs, storybook composition with clear '
+                     'focal points, NEUTRAL to COOL color temperature with no yellow-amber cast, inspired by '
+                     'modern Korean picture books for 7-year-olds'},
+    'bsl36': {'grade': 1,
+     'semester': 2,
+     'subject': '통합교과',
+     'series': '상상',
+     'unit': '',
+     'sub_unit': '함께 골라요',
+     'achievement_standard': '',
+     'unit_title': '생각 세 고개를 넘는다면 (56-57p)',
+     'story_direction': "새로운 주인공의 특별편 — 상상 단원 마지막 편. 주인공은 궁금한 게 생기면 고개를 갸웃하는 아기 여우 '갸웃이'와 엉뚱한 생각이 톡톡 튀어나오는 아기 "
+                        "고슴도치 '톡톡이'. 산 너머 '수수께끼 마을' 축제에 가려면 생각 고개 세 개를 넘어야 한다. 고개마다 산지기 동물이 문제를 낸다. ① 첫째 고개(다르게 "
+                        "이어 말하기) — 너구리 산지기가 분필을 보여 주자, 갸웃이와 톡톡이가 번갈아 '이건 지렁이 같아!', '이건 똑똑똑 소리가 나!', '이건 쓸수록 "
+                        "작아져!'라고 다르게 이어 말한다. 냄비·열쇠·모자·빨대도 차례로 이어 말하기, ② 둘째 고개(생각 세 고개 풀기) — 두더지 산지기의 문제 '이걸 보면 "
+                        "구름이 생각나요 / 달콤하고 부드러운 이불 같아요 / 너무 만지면 끈적끈적해요' → 정답 솜사탕! ③ 셋째 고개(내가 문제 내기) — 이번엔 둘이 힘을 합쳐 "
+                        '산지기에게 생각 세 고개 문제를 낸다 (정답: 무지개). 세 고개를 모두 넘자 수수께끼 마을 축제가 펼쳐지고, 마을 친구들이 서로 문제를 내며 즐겁게 논다. '
+                        "'같은 것을 보고도 생각은 여러 갈래로 뻗어 나가. 생각을 넓히면 상상이 날개를 달아'라는 메시지. 마지막에 '너도 생각 세 고개 문제를 하나 만들어 볼래? "
+                        "첫째 고개는 무엇으로 할까?'라고 묻는 열린 결말. 1학년 눈높이, 수수께끼 리듬과 의태어(갸웃, 톡톡, 끈적끈적)를 풍부하게.",
+     'world_setting': 'three_riddle_hills',
+     'world_desc': '구불구불 이어진 초록 언덕 세 개 — 고개마다 표지판과 산지기 동물의 작은 쉼터, 마지막 고개 너머 깃발과 등불이 걸린 수수께끼 마을 축제',
+     'character_type': 'NEW main characters for this special episode (NOT the chick and turtle): main_1 Gyauti — '
+                       'a curious baby fox with soft orange fur, white chest and tail tip, big pointed ears, '
+                       'often tilting her head, wearing a small purple neckerchief; main_2 Toktoki — a tiny '
+                       'round baby hedgehog with soft light-brown spines, a cream face, sparkly mischievous '
+                       'eyes, wearing a little red-and-white striped cap. Supporting: a raccoon gatekeeper, a '
+                       'mole gatekeeper with tiny round glasses, riddle village friends. CRITICAL: all '
+                       'characters must have ANIMAL faces — NOT human faces.',
+     'art_style_en': "bright cheerful Korean children's picture book illustration, soft watercolor and gouache, "
+                     'rolling green hills with winding paths and signposts, festive riddle village with flags '
+                     'and lanterns, rounded adorable animal character designs, storybook composition with clear '
+                     'focal points, NEUTRAL to COOL color temperature with no yellow-amber cast, inspired by '
+                     'modern Korean picture books for 7-year-olds'},
+
 }
 
 # ── 에피소드 목록 (2학년 1학기 국어) ──────────────────────
@@ -1302,6 +1591,14 @@ def build_prompt(ep_info: dict) -> str:
   - "speaker" 값은 캐릭터의 실제 성별에 맞게 배정: 남자아이 → "child_boy", 여자아이 → "child_girl", 어른 → "teacher", 나레이터 → "narrator"
   - characters 배열(meta.characters)의 gender 필드를 반드시 참고할 것. gender가 "boy"/"male"이면 child_boy, "girl"/"female"이면 child_girl
   - tts_segments의 emotion은 구체적인 연기 지시문으로 작성 (예: "놀라서 눈이 동그래진 목소리", "속삭이듯 조심스럽게")
+  - [효과음 규칙] 소리 흉내 감탄("쿵! 쿵!", "찰칵!", "짝!" 등)을 단독 문장이나 대사로 쓰지 마세요 (TTS가 어색하게 읽습니다).
+    그 문장은 빼고, 해당 narrator tts_segment에 "sfx" 필드로 적으세요. 후처리 단계가 효과음을 합성해 넣습니다.
+    형식: "sfx":[{{"type":"thump","where":"start","count":2}}]   (예: 곰이 쿵쿵 걸어오는 장면의 첫 세그먼트)
+      · type: thump(쿵) shutter(찰칵) clap(짝) pop(퐁) pop_pop(퐁퐁) sparkle(반짝) flutter(펄럭펄럭) swish(쭈욱) roll(데굴데굴)
+      · where: "start"(세그먼트 맨 앞) / "end"(맨 끝) / "after"(+ "after_text":"소리 직전 문장의 끝 몇 글자, text에 그대로 있어야 함") / "word"(+ "word":"text 속 의성어 낱말")
+    문장 속에 자연스럽게 녹아든 의성어·의태어 부사("데굴데굴 굴러왔어요")는 text에 그대로 두세요 (효과음을 겹치려면 {{"type":"roll","where":"word","word":"데굴데굴"}}, 생략해도 자동 감지).
+    이름("쿵쿵이")과 대사 속 감탄("에취!")은 그대로 두고, sfx는 narrator 세그먼트에만 쓰세요.
+  - emotion에 소리 묘사를 쓰지 마세요 ("발소리를 묵직하게", "찰칵 소리를 살려서" 금지). 감정·말투만 쓰세요.
   - 모든 story 슬라이드에 반드시 tts_segments 배열을 포함하세요. 이것을 절대 생략하지 마세요!
   - 각 슬라이드의 text에 등장인물의 직접 대화("")가 있으면 반드시 해당 캐릭터의 speaker로 분리하세요
   - 예시:
@@ -1930,6 +2227,14 @@ def build_prompt_ko_free(theme: str = "") -> str:
   - voice 필드는 speaker와 동일하게 작성
   - 남자아이 → child_boy, 여자아이 → child_girl, 어른/교사 → teacher, 나레이터 → narrator
   - emotion은 구체적 연기 지시문 (예: "놀라서 눈이 동그래진 목소리")
+  - [효과음 규칙] 소리 흉내 감탄("쿵! 쿵!", "찰칵!", "짝!" 등)을 단독 문장이나 대사로 쓰지 마세요 (TTS가 어색하게 읽습니다).
+    그 문장은 빼고, 해당 narrator tts_segment에 "sfx" 필드로 적으세요. 후처리 단계가 효과음을 합성해 넣습니다.
+    형식: "sfx":[{{"type":"thump","where":"start","count":2}}]   (예: 곰이 쿵쿵 걸어오는 장면의 첫 세그먼트)
+      · type: thump(쿵) shutter(찰칵) clap(짝) pop(퐁) pop_pop(퐁퐁) sparkle(반짝) flutter(펄럭펄럭) swish(쭈욱) roll(데굴데굴)
+      · where: "start"(세그먼트 맨 앞) / "end"(맨 끝) / "after"(+ "after_text":"소리 직전 문장의 끝 몇 글자, text에 그대로 있어야 함") / "word"(+ "word":"text 속 의성어 낱말")
+    문장 속에 자연스럽게 녹아든 의성어·의태어 부사("데굴데굴 굴러왔어요")는 text에 그대로 두세요 (효과음을 겹치려면 {{"type":"roll","where":"word","word":"데굴데굴"}}, 생략해도 자동 감지).
+    이름("쿵쿵이")과 대사 속 감탄("에취!")은 그대로 두고, sfx는 narrator 세그먼트에만 쓰세요.
+  - emotion에 소리 묘사를 쓰지 마세요 ("발소리를 묵직하게", "찰칵 소리를 살려서" 금지). 감정·말투만 쓰세요.
   - 모든 story 슬라이드에 최소 2개 이상 tts_segment 포함
   - 대화("")는 반드시 캐릭터 speaker로 분리, narrator로만 채우지 말 것
   - ..., —, ―, ★, ♪ 등 특수문자 사용 금지 (마침표·쉼표만 사용)
@@ -2098,7 +2403,16 @@ def main():
     parser.add_argument("--lang", type=str, default="ko",
                         help="언어 코드: ko (기본) 또는 id (인도네시아어)")
     parser.add_argument("--theme", type=str, default="",
-                        help="[인도네시아어 전용] 동화 테마/제목 힌트 (생략 시 AI 자유 생성)")
+                        help="동화 테마/제목 힌트 (인니 자유생성, 또는 한국어 주제 생성)")
+    # 한국어 --theme 생성은 교과 정보가 필수 (2026-09 약속 단원 10편이 교과 정보 없이 만들어져
+    # 제목에서 교과서·쪽수가 빠지고 활동지 머리글이 '2학년 국어'로 찍힌 사고)
+    parser.add_argument("--grade", type=int, default=None)
+    parser.add_argument("--semester", type=int, default=None)
+    parser.add_argument("--subject", type=str, default="통합교과")
+    parser.add_argument("--series", type=str, default="", help="단원명 (예: 약속)")
+    parser.add_argument("--unit-title", type=str, default="", help="차시명 (쪽수) 예: '수도꼭지를 잠그면 (24-25p)'")
+    parser.add_argument("--sub-unit", type=str, default="", help="예: '4차시'")
+    parser.add_argument("--no-textbook", action="store_true", help="교과 연계 없는 편임을 명시")
     args = parser.parse_args()
 
     base = os.path.dirname(os.path.abspath(__file__))
@@ -2116,8 +2430,24 @@ def main():
         out_dir = os.path.join(base, args.dir)
         story = generate_story_id(theme=args.theme)
     elif lang == "ko" and args.theme and args.dir:
-        # 한국어 자유 주제 모드: 스토리 생성 후 폴더명 자동 결정 (주제_책제목)
+        # 한국어 주제 모드: 교과 정보를 인자로 받아 meta에 주입 (없으면 생성 전에 중단)
+        tb = dict(grade=args.grade, semester=args.semester, subject=args.subject,
+                  series=args.series, unit_title=args.unit_title, sub_unit=args.sub_unit)
+        if not args.no_textbook:
+            missing = [k for k in ("grade", "semester", "series", "unit_title") if not tb[k]]
+            if missing:
+                print(f"[ERROR] 한국어 --theme 생성에는 교과 정보가 필요합니다: {missing}")
+                print("  예) --grade 1 --semester 2 --series 약속 --unit-title '수도꼭지를 잠그면 (24-25p)' --sub-unit '4차시'")
+                print("  교과 무관 편이면 --no-textbook")
+                sys.exit(1)
         story = generate_story_ko_free(theme=args.theme)
+        m = story.setdefault("meta", {})
+        if args.no_textbook:
+            m["no_textbook"] = True
+        else:
+            m.update({k: v for k, v in tb.items() if v})
+            m["youtube_title"] = (f"{m['grade']}학년 추천 {m['subject']} {m['series']} "
+                                  f"{m['unit_title']} | {m.get('story_title', '')}")
         auto_name = make_output_dirname(story.get("meta", {}))
         out_dir = os.path.join(base, "output", auto_name)
         print(f"[INFO] 출력 폴더 자동 결정: output/{auto_name}")

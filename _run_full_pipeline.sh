@@ -18,17 +18,26 @@ python -u 01a_evaluate_story.py --dir "$DIR" --auto-improve || echo "[WARN] 01a 
 python -u 01b_analyze_shorts_plan.py --dir "$DIR" --with-images
 python -u 02a_check_images.py --dir "$DIR" --auto-regen || echo "[WARN] 02a 실패, 계속 진행"
 python -u 11_animate_scenes.py --dir "$DIR" --limit 6 || echo "[WARN] 11 실패, 계속 진행"
+# 의성어 효과음 1단계(텍스트): "쿵! 쿵!" 같은 소리 흉내 감탄을 TTS 텍스트에서 빼고 audio/sfx_events.json 생성. 이벤트 없으면 무변화
+python -u sfx_prep.py --dir "$DIR" || echo "[WARN] sfx_prep 실패, 효과음 없이 계속 진행"
 python -u 03_generate_tts.py --dir "$DIR"
 # TTS 세그먼트 완전성 게이트 — 대사 빠진 영상이 조립되는 것을 막는다 (2026-09-14 사고)
 python -u tts_gate.py --dir "$DIR" || { echo "[FAIL] TTS 세그먼트 결손 — 중단"; exit 1; }
 python -u 03a_check_narration.py --dir "$DIR" --auto-fix || echo "[WARN] 03a 실패, 계속 진행"
+# 의성어 효과음 2단계: 대체 효과음 자리(무음) 확보 + timing.json 갱신 -> 04 -> 믹스 (이벤트 없으면 통과)
+python -u sfx_prep.py --dir "$DIR" --pad || { echo "[FAIL] sfx 패딩 실패 — 중단"; exit 1; }
 python -u 04_concat_audio.py --dir "$DIR"
+python -u sfx_mix.py --dir "$DIR" || { echo "[FAIL] sfx 믹스 실패 — 중단"; exit 1; }
 python -u 05_generate_srt.py --dir "$DIR"
-python -u 07_generate_worksheet.py --dir "$DIR"
-python -u 07a_check_worksheet.py --dir "$DIR" || echo "[WARN] 07a 실패, 계속 진행"
+# 활동지: v2.1 데이터(원문 근거 검증) → 렌더 → QA 게이트. 불합격이면 업로드하지 않는다
+# (2026-09-26 전수조사: 07a 경고만 하고 진행해 결함 활동지가 그대로 배포됐음)
+python -u gen_activity_v2.py --dir "$DIR" || { echo "[FAIL] 활동지 데이터 생성 실패 — 중단"; exit 1; }
+python -u 07_generate_worksheet.py --dir "$DIR" || { echo "[FAIL] 활동지 렌더 실패 — 중단"; exit 1; }
+python -u 07a_check_worksheet.py --dir "$DIR" || { echo "[FAIL] 활동지 QA 불합격 — 중단 (worksheet_qa.json 확인)"; exit 1; }
 python -u 07b_generate_quiz_slides.py --dir "$DIR"
 python -u 09b_smart_shorts.py --dir "$DIR" || echo "[WARN] 09b 실패, 계속 진행"
 python -u 10_generate_thumbnail.py --dir "$DIR"
+python -u 11b_key_scene.py --dir "$DIR" || echo "[WARN] 11b 실패, 계속 진행"  # A안 핵심 장면(입·눈·숨): 항상 exit 0, 실패하면 기존 정지/11번 애니 그대로
 python -u 06_assemble_video.py --dir "$DIR"
 python -u 08_generate_book_pptx.py --dir "$DIR" --mode 1 || echo "[WARN] 08 실패, 계속 진행"
 

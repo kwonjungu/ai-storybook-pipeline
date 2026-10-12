@@ -83,3 +83,16 @@ _voice_audit_report.json
 _thumb_backup_*/
 _tmp_*.py
 _en_haru_batch_log.json
+
+# 2026-10-12: 교과서 자료 추출본(저작권)·백업·감사 산출물·OAuth 임시물은 로컬 전용
+_자료_*/
+_backup_*/
+_audit_*/
+_worksheet_backup_*/
+_meta_backup_*/
+_tmp_logs/
+_auth_url_*.txt
+_puzzle_batch*.sh
+
+# 학생 실명 포함 — 공개 저장소 금지
+student_books/

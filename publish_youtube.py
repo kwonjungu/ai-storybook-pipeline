@@ -307,6 +307,16 @@ def upload_video(
     # 새 제목 공식 (yt_meta.build_title): {story_title}! | {학년} {학기} {series} {소단원} ({쪽수})
     title = yt_meta.build_title(story)
 
+    # 교과서 표기 게이트: 한국어 본편은 '| 1학년 2학기 {단원} (쪽수)'가 채널의 핵심.
+    # --theme 자유생성은 grade/semester/series/unit_title 이 비어 제목에서 통째로 빠진다
+    # (2026-09 '약속' 단원 10편 사고). 교과 연계 없는 편은 meta.no_textbook=true 로 명시.
+    if meta.get("language", "ko") == "ko" and not meta.get("no_textbook"):
+        if not yt_meta.extract_pages(story) or " | " not in title:
+            print(f"[ERROR] 제목에 교과서·쪽수 표기가 없음: {title}\n"
+                  f"  story.json meta 에 grade/semester/subject/series/unit_title('단원명 (NN-NNp)')/sub_unit 을 채우거나,\n"
+                  f"  교과 연계 없는 편이면 meta.no_textbook=true 로 지정하세요.", file=sys.stderr)
+            sys.exit(1)
+
     youtube = build("youtube", "v3", credentials=creds)
 
     # 아동 대상 콘텐츠 필수 선언 (COPPA)
@@ -492,6 +502,17 @@ def main():
     if not args.no_drive:
         pptx_path = out_dir / "book_1분할.pptx"
         if pptx_path.exists():
+            # 업로드 전 자동 축소 (임베드 PNG→JPEG, 딜레이·Drive 부담 감소)
+            # 이미 축소된 파일은 변환 대상이 없어 그대로 통과 (멱등)
+            try:
+                import shrink_assets
+                old, new = shrink_assets.shrink_pptx(pptx_path)
+                if new < old:
+                    print(f"[SHRINK] {pptx_path.name}: "
+                          f"{old/1e6:.1f}MB → {new/1e6:.1f}MB")
+                shrink_assets.clean_episode_junk(out_dir)
+            except Exception as e:
+                print(f"[SHRINK] 축소 건너뜀(원본 그대로 업로드): {e}")
             pptx_url = upload_to_drive(pptx_path, story, creds)
         else:
             print(f"[SKIP] PPT 없음: {pptx_path.name}")

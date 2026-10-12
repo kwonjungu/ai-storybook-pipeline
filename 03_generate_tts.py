@@ -164,7 +164,7 @@ TYPECAST_BASE_URL = "https://api.typecast.ai"
 TYPECAST_MODEL = os.getenv("TYPECAST_MODEL", "ssfm-v30")  # ssfm-v30(최신) | ssfm-v21(안정)
 TYPECAST_TEXT_LIMIT = 2000  # 요청당 최대 글자 수
 # story.json meta.language → Typecast language 파라미터(ISO 639-3). ko/en만 Typecast 지원.
-TYPECAST_LANG_CODE = {"ko": "kor", "en": "eng"}
+TYPECAST_LANG_CODE = {"ko": "kor", "en": "eng", "es": "spa"}  # es: 2026-10-11 실측(같은 voice_id로 spa 생성 확인)
 
 # ---------------------------------------------------------------------------
 # 캐릭터별 보이스 선택 기준
@@ -1185,7 +1185,15 @@ def main():
     # Typecast는 ko/en 지원 (language 파라미터로 전환, ssfm-v30 다국어).
     # 그 외 언어(id/es/pt/ja 등)는 항상 Gemini/ElevenLabs 경로 — 기존 다국어 인프라 유지.
     # engine=gemini를 명시하면 ko/en이어도 Gemini로 강제.
-    TYPECAST_CAPABLE_LANGS = ("ko", "en")
+    TYPECAST_CAPABLE_LANGS = ("ko", "en", "es")
+    # 실제 사용 엔진을 기록 — tts_gate.py 가 03 을 재실행할 때 같은 엔진을 넘기기 위함
+    # (2026-10-12: 게이트가 --engine 없이 03 을 불러 Typecast 편에 Gemini 목소리가 섞인 사고)
+    _eff_engine = "gemini" if (args.engine == "gemini" or lang not in TYPECAST_CAPABLE_LANGS) else "typecast"
+    try:
+        (audio_dir / "tts_engine.json").write_text(
+            json.dumps({"engine": _eff_engine, "lang": lang}, ensure_ascii=False), encoding="utf-8")
+    except Exception as _e:
+        print(f"  [WARN] tts_engine.json 기록 실패: {_e}")
     if args.engine == "gemini" or lang not in TYPECAST_CAPABLE_LANGS:
         slide_segments_map = run_gemini_tts_pipeline(ep_dir, story, lang=lang)
         # timing.json 생성은 아래 공통 로직에서 처리

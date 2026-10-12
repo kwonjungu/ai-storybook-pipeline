@@ -71,21 +71,31 @@ python 01b_analyze_shorts_plan.py --ep N --with-images
 # 2a. ★ 이미지 품질 LLM 점검 (할루시네이션·비교육성·텍스트노출·캐릭터·화질)
 python 02a_check_images.py --ep N --auto-regen       # 불합격 시 자동 재생성
 
+# 2b. ★ 의성어 효과음 1단계 — 03 *전*에. ko + en/es/id/pt, 이벤트 없으면 무변화 (아래 "의성어 효과음" 참고)
+python sfx_prep.py --dir output/폴더
+
 # 3. TTS 생성 (Typecast/Gemini TTS 언어별 자동)
 python 03_generate_tts.py --ep N
 
 # 3a. ★ 나레이션 스크립트 LLM 점검 (화자혼입·언어·연령·흐름·특수문자)
 python 03a_check_narration.py --ep N --auto-fix      # 자동 수정 가능 항목 즉시 수정
 
-# 4. 오디오 합치기
+# 4. 오디오 합치기 (효과음 있으면: tts_gate 후 sfx_prep --pad -> 04 -> sfx_mix)
+python sfx_prep.py --dir output/폴더 --pad
 python 04_concat_audio.py --ep N
+python sfx_mix.py --dir output/폴더
 
 # 5. SRT 자막 생성
 python 05_generate_srt.py --ep N
 
-# 6. 활동지 HTML
-python 07_generate_worksheet.py --ep N
-python 07a_check_worksheet.py --dir output/폴더   # ★ 활동지 QA (불합격 시 사람 검토)
+# 6. 활동지 (2026-09-26 전수조사 후 개편 — 활동지_업데이트설계서_20260926 참고)
+python gen_activity_v2.py --dir output/폴더        # ★ 활동 데이터 v2.1 (모든 문항 원문 근거 대조)
+python 07_generate_worksheet.py --dir output/폴더  # v2.1·교과 meta 없으면 중단 (휴리스틱은 --allow-heuristic, 배포 금지)
+python 07a_check_worksheet.py --dir output/폴더    # ★ QA 게이트: 규칙+원문대조 불합격이면 exit 1 (--vision 레이아웃 경고)
+# 이미 배포된 활동지를 고쳤으면: Drive 같은 파일 ID에 덮어쓰기 (링크·조회수 불변)
+python _resync_worksheets.py            # dry-run
+python _resync_worksheets.py --apply    # fix_drive_links.py는 새 파일+구 설명란이라 쓰지 말 것
+# 한국어 --theme 생성은 교과 정보 필수: --grade 1 --semester 2 --series 약속 --unit-title '차시명 (NN-NNp)' --sub-unit 'N차시'
 
 # 7. 퀴즈 슬라이드 PNG (Jua 폰트)
 python 07b_generate_quiz_slides.py --ep N
@@ -94,8 +104,16 @@ python 07b_generate_quiz_slides.py --ep N
 #     TTS와 무관 → 07b·06 사이 언제든 병렬 실행 가능. anim/slide_XX.mp4 생성 시 06이 자동 삽입
 python 11_animate_scenes.py --dir output/epNN --limit 6
 
+# 7d. ★ 핵심 장면 1컷 '말하는 장면'(A안 v2: 립싱크·끄덕·갸웃·깜빡·숨·푸시인) — 11 다음, 04(timing.json) 이후, 06 전
+#     11의 anim/_layers 재사용, Gemini로 캐릭터·입·눈 자동 검출 → anim/key_slide_XX.mp4 (06이 slide_XX.mp4보다 우선 사용)
+#     입: 쉬는 입=원본 그림, 벌린 입은 원본 변형·다문 입은 편집 생성, 검사 탈락/옆모습이면 입 움직임 끔. 이미지 상한 $0.40, 실패 시 파일 없이 exit 0
+python 11b_key_scene.py --dir output/epNN      # 확인: anim/key_scene_check.png, 재렌더(비용 0): --force --reuse
+
 # 8. Shorts 영상 (Mode A: 9:16 이미지 / Mode B: blur 합성)
 python 09b_smart_shorts.py --ep N
+
+# 8b. ★ 퍼즐 숏츠 A~D 순환 (2026-10-12) — 본편 그림 재활용, 15~20초 자체 완결, 새 파일 shorts_puzzle.mp4/json 만 추가
+python 09c_puzzle_shorts.py --dir output/폴더 --format auto   # A그림수수께끼→B다른그림찾기→C무슨소리일까→D햄찌쌤질문 순환, 불가 포맷은 다음으로
 
 # 9. 썸네일 A/B (Jua 폰트)
 python 10_generate_thumbnail.py --ep N
@@ -194,7 +212,7 @@ python run_id_haru_batch.py --no-upload
 
 **게이트**: `tts_gate.py` — story.json 이 요구하는 세그먼트 수와 실제 wav 를 대조하고,
 모자라면 03 을 다시 돌려(03은 기존 wav 를 건너뛰므로 빠진 것만 생성) 최대 2회까지 채운다.
-끝내 미달이면 **조립·업로드를 중단**한다. 이미 아래 4곳에 들어가 있다:
+끝내 미달이면 **조립·업로드를 중단**한다. 이미 아래 4곳에 들어가 있다 (한국어 `_produce_until_publish.sh`·`_make_sample.sh` 도):
 `_run_full_pipeline.sh`(한국어) · `_run_en_pipeline.sh`(영어) · `run_id_sangsang_batch.py` · `run_id_haru_batch.py`
 
 ```bash
@@ -206,6 +224,35 @@ python _repair_id_tts.py --reupload --only <일부>  # 결손은 없는데 업�
 ```
 - 업로드·인증 단계는 SSL 순단이 잦다 → `publish_youtube.retry()` 로 감쌀 것(배치 3종에 적용됨).
 - 게이트를 통과 못 한 편은 업로드되지 않고 로그에 에러로 남는다. 다음 실행 때 그 편부터 재시도된다.
+
+## 의성어 효과음 (2026-10-12, 한국어 + en/es/id/pt)
+
+짧은 소리 흉내 감탄("쿵! 쿵!", "찰칵!")을 TTS가 읽으면 어색 -> 텍스트에서 빼고 합성 효과음(`sfx_lib.py`, numpy/scipy, 저작권 0)으로 대체한다.
+
+- **체인 위치**: `sfx_prep.py`(03 전) -> 03 -> `tts_gate.py` -> (03a) -> `sfx_prep.py --pad` -> 04 -> `sfx_mix.py` -> 05 -> 06.
+  `_run_full_pipeline.sh` · `_produce_until_publish.sh` · `_make_sample.sh` 에 연결됨. 영어(`_run_en_pipeline.sh`)·인니(`run_id_*_batch.py`) 체인에도 연결됨. 어휘표 없는 언어는 통과.
+- **이벤트가 없으면 아무것도 안 하고 통과** (기존 편 영향 0). `publish_log.json` 있는 편은 sfx_prep 이 건드리지 않음.
+- **1단계**(`sfx_prep.py`): 세그먼트 `sfx` 필드 우선, 없으면 narrator 문장에서 감탄형 의성어를 찾아 지움 + emotion 의 소리 문구("발소리를", "~소리를 살려서") 정리.
+  바뀐 세그먼트 wav 만 지워 03 이 그것만 다시 만든다. 결과 `audio/sfx_events.json`, 원본 `story.pre_sfx.json`.
+  - 대체(말 대신 효과음): 문장 첫머리/문장 사이/끝의 `쿵!` `찰칵!` `짝!` `퐁!` 등 -> 선행 0.5초 / 문장 사이 0.3초 / 끝 0.4초 무음을 wav 에 넣어 자리를 만든다.
+  - 겹쳐 깔기(말은 그대로): 문장 속 부사 `데굴데굴 굴러왔어요` `손뼉을 짝` `펄럭펄럭 소리가` 등.
+  - 그대로: 이름(`쿵쿵이`), 따옴표/다른 화자 대사 속 감탄(`에취!`), `반짝이며` 같은 활용형.
+- **2단계**(`--pad`): 패딩 + `timing.json` 새 길이로 밀기 (04/05/06 은 timing.json 이 단일 진실).
+- **믹스**(`sfx_mix.py`): 효과음 피크 = 대사 RMS 대비 -4~-11 dB, 합산 피크 0.95 초과 시 look-ahead 리미터, 믹스 전 LUFS(약 -14)에 맞춤.
+  멱등(`full_audio.nosfx.wav` 보관, 04 재실행해도 안전). 결과 `audio/sfx_log.json`(효과음 시각).
+  겹쳐 깔기 위치 = 세그먼트 wav 의 쉼(무음)을 띄어쓰기 경계에 닻으로 건 음절 가중 추정.
+- **스토리 `sfx` 필드 규격** (01/01a 프롬프트가 시킨다; narrator 세그먼트에만):
+  `"sfx":[{"type":"thump","where":"start","count":2}]` — type = thump(쿵) shutter(찰칵) clap(짝) pop(퐁) pop_pop(퐁퐁) sparkle(반짝) flutter(펄럭펄럭) swish(쭈욱) roll(데굴데굴);
+  where = `start`(세그먼트 앞) / `end`(끝) / `after`(+`after_text`: text 안의 직전 문장 끝 문구) / `word`(+`word`: text 속 낱말, 겹쳐 깔기).
+  소리 흉내 감탄은 text 에 쓰지 않고, emotion 에 소리 묘사를 쓰지 않는다.
+- **다국어 (2026-10-12)**: 언어는 `meta.language`. 어휘는 `sfx_prep.LATIN_LEX[lang]` (replace=단독 감탄 `Boom!` `¡Pum!` `Dug!` `Bum!` / word=겹쳐 깔기 `rolled` `rodó` `berguling` `rolou`) — **새 언어는 항목 하나 추가**.
+  - 번역이 이어받음: `translate_multilang.py` 가 한국어 `audio/sfx_events.json`(없으면 같은 규칙으로 메모리 감지)을 번역본 세그먼트 `sfx` 필드로 옮긴다.
+    start/end 는 그대로, 겹쳐 깔기·문장 사이는 번역 프롬프트에 `<w1>낱말</w1>` / `<s1/>` 표식을 심어 대응어를 받고, **못 찾으면 그 이벤트 삭제**. 모델이 쓴 `Snap!` `¡Pum!` 류는 후처리로 대사에서 제거.
+    `--dst 폴더` 로 출력 경로 지정, `--copy-anim` 으로 anim/ 복사.
+  - 번역본에 `sfx` 필드가 하나라도 있으면 어휘 감지는 끄고 필드만 쓴다. 필드 없는 기존 번역본은 어휘표 감지(`python sfx_prep.py --dir 폴더 --dry-run` 으로 파일 수정 없이 미리보기).
+  - 믹스 시각 추정은 라틴 문자 텍스트면 모음 가중 음절 근사(`sfx_common.is_latin_text`). 엔진 기록: en/es=Typecast, id/pt=Gemini (`audio/tts_engine.json`, 게이트가 같은 엔진으로 재실행).
+- **tts_gate 엔진 판별**: 03 이 `audio/tts_engine.json` 에 실제 엔진을 기록하고, 게이트는 03 을 재실행할 때 같은 엔진을 `--engine` 으로 넘긴다
+  (기록이 없으면 voice_selection.json 의 `tc_` 보이스로 Typecast 판별). `tts_gate.py --engine ...` 으로 강제도 가능.
 
 ## 썸네일 스타일 C 규칙과 강제 절차 (2026-09-14 전면 재조립)
 
@@ -425,8 +472,9 @@ python 08a_batch_book_pptx.py --skip-done   # 이미 생성된 것 건너뜀
 ## 업로드·운영 정책 (2026-08 확정)
 - 공개 주기: 주 1~2편, publish_youtube --schedule 로 예약 공개. 대량 동시 공개 금지
 - 타이밍: 해당 단원 진도 1~2주 전 공개 (2학기 하루·상상 = 9~11월)
-- Shorts: 본편 요약형 제작 중단. --shorts는 명시 요청 시에만.
-  (신규 쇼츠는 15~20초 자체 완결 '그림 수수께끼' 포맷 확정 후 재개 — 별도 기획)
+- Shorts: 본편 요약형 제작 중단(--shorts 는 명시 요청 시에만). **새 포맷 A~D 순환 채택(2026-10-12)**:
+  `09c_puzzle_shorts.py` 로 A 그림 수수께끼·B 다른 그림 찾기·C 무슨 소리일까·D 햄찌쌤 질문을 편 순서대로 순환(불가한 포맷은 다음 것). 15~20초·세로·숏츠 안에서 완결,
+  문구는 Gemini 가 story.json 근거로 생성, 끝 프레임에 본편 안내. 설계 근거 `숏츠개선계획서_20261012.md`. 업로드는 본편 공개일 이후 예약, 지표(계속 시청 60%·평균 시청률 80%)로 포맷별 존폐 판단.
 - 성공 지표: 구독자·조회수 아님. "단원 재생목록의 교실 재생"(트래픽 소스: 외부/직접 유입)
   분기 1회 _channel_audit.py로 점검
 - 유통: 신규 단원 완성 시 인디스쿨 게시(단원 재생목록 + 통합 Drive 폴더 링크)가 공개 절차의 마지막 단계

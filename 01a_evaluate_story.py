@@ -300,6 +300,7 @@ Output HANYA JSON array ([{{...}}, {{...}}], tidak ada teks lain):"""
 3. 슬라이드 수는 원본({len(story_slides)}장)과 동일하게 유지하세요.
 4. tts_segments[].text는 마침표·쉼표만 허용. \u2026, \u2014, \u2015 사용 금지.
 5. 각 세그먼트의 speaker 값과 voice 값을 반드시 동일하게 맞추세요.
+6. 소리 흉내 감탄("쿵! 쿵!", "찰칵!")을 단독 문장·대사로 쓰지 말고 narrator 세그먼트의 "sfx" 필드로 적으세요 (예: "sfx":[{{"type":"thump","where":"start","count":2}}]; type=thump/shutter/clap/pop/pop_pop/sparkle/flutter/swish/roll, where=start/end/after+after_text/word+word). 원본에 이미 있는 sfx 필드는 유지하고, emotion에 소리 묘사("발소리를", "~소리를 살려서")는 쓰지 마세요.
 
 JSON 배열만 출력 ([{{...}}, {{...}}] 형식, 다른 텍스트 없이):"""
 

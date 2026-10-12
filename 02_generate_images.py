@@ -50,6 +50,17 @@ CHAR_REF_GUARD = (
     "clothing/accessories. Do NOT invent a different-looking character. "
 )
 
+# 글자 노출 방지 가드 — 반드시 프롬프트 최상단에 배치
+# (기존에는 프롬프트 끝에만 붙였는데, 뒤쪽 지시는 무시되는 경향이 있어
+#  꼬인 글자·간판·말풍선이 계속 새어 나왔다. 최상단 STRICT + 끝단 이중 앵커.)
+NO_TEXT_GUARD = (
+    "NO TEXT (STRICT): The image must contain ZERO text of any kind — "
+    "no letters, no words, no numbers, no speech bubbles, no captions, "
+    "no signs with writing, no logos, no watermarks, in ANY language "
+    "including Korean and English. Blackboards, books, posters, labels and "
+    "banners must be completely blank or show only abstract scribbles. "
+)
+
 # 화풍 고정 + 풀블리드 가드 (모든 슬라이드·시트 프롬프트에 결합)
 # 슬라이드마다 치비체↔수채화체가 요동하는 문제와, 생성 이미지에 구워진 흰 테두리를 차단.
 STYLE_GUARD = (
@@ -116,7 +127,7 @@ def collect_characters(story) -> dict:
 def build_char_sheet_prompt(info: dict) -> str:
     """전신 캐릭터 시트 프롬프트 (정면·중립 포즈·깨끗한 단색 배경)."""
     return (
-        STYLE_GUARD +
+        NO_TEXT_GUARD + STYLE_GUARD +
         f"Full-body character sheet of {info['name']}: {info['appearance_en']} "
         "Front view, standing, neutral friendly pose, whole body visible from "
         "head to toe, centered, clean solid soft pastel background, "
@@ -281,7 +292,7 @@ def build_prompts(story, slides, ep_dir, force=False, char_sheets=None):
         # 캐릭터 레퍼런스 (Phase A에서 생성한 시트) + STRICT 가드 (반드시 최상단)
         slide_text = " ".join(seg.get("text", "") for seg in slide.get("tts_segments", []))
         ref_paths = _refs_for_slide(image_prompt, all_chars, char_sheets, slide_text)
-        guard = (CHAR_REF_GUARD if ref_paths else "") + STYLE_GUARD
+        guard = (CHAR_REF_GUARD if ref_paths else "") + NO_TEXT_GUARD + STYLE_GUARD
 
         # 16:9 (기본)
         tasks.append({
@@ -725,6 +736,28 @@ def main():
         generated, failed = run_realtime(client, tasks)
 
     # ------------------------------------------------------------------
+    # 4b. 저장 전수 검증 + 누락분 자동 복구
+    # 배치가 JOB_STATE_SUCCEEDED여도 1~2장이 조용히 저장 누락되는 사례가
+    # 반복됨 → 파일 존재를 전수 대조하고, 빠진 슬라이드만 실시간 재생성.
+    # ------------------------------------------------------------------
+    missing = [t for t in tasks if not t["output_path"].exists()]
+    if missing:
+        print()
+        print(f"[검증] 저장 누락 {len(missing)}건 감지 → 실시간 자동 재생성")
+        for t in missing:
+            print(f"  - {t['output_path'].name}")
+        re_gen, _ = run_realtime(client, missing)
+        generated += re_gen
+
+    still_missing = [t for t in tasks if not t["output_path"].exists()]
+    failed = len(still_missing)
+    if still_missing:
+        print(f"\n[검증] 자동 복구 후에도 {failed}건 누락: "
+              + ", ".join(t["output_path"].name for t in still_missing))
+    else:
+        print(f"\n[검증] 대상 {len(tasks)}건 전부 저장 확인 (누락 0)")
+
+    # ------------------------------------------------------------------
     # 5. 결과 요약
     # ------------------------------------------------------------------
     images_dir = ep_dir / "images"
@@ -740,6 +773,11 @@ def main():
     print(f"  예상 비용: ${generated * cost_per_image:.3f}")
     print(f"  출력 폴더: {images_dir.absolute()}")
     print("=" * 50)
+
+    # 누락이 남으면 비정상 종료 → 후속 단계(06 조립 등)가 빈 슬라이드로
+    # 조용히 진행되지 않도록 게이트 역할 (tts_gate와 같은 원칙)
+    if failed:
+        sys.exit(2)
 
 
 if __name__ == "__main__":

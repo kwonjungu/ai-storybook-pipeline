@@ -81,11 +81,11 @@ LABELS = {
         "wrap_chars": 22,
     },
     "es": {
-        "badge": ["Pregunta 1!", "Pregunta 2!", "Pregunta 3!"],
-        "quiz_intro_title": "Hora del Quiz!",
-        "quiz_intro_sub": "Resolvamos algunos quizzes divertidos!",
-        "think": "Piensa bien!",
-        "correct": "Correcto!",
+        "badge": ["¡Pregunta 1!", "¡Pregunta 2!", "¡Pregunta 3!"],
+        "quiz_intro_title": "¡Hora del quiz!",
+        "quiz_intro_sub": "¡Resolvamos unas preguntas divertidas!",
+        "think": "¡Piensa bien!",
+        "correct": "¡Correcto!",
         "answer_footer": "Respuesta de la Pregunta {n}",
         "wrap_chars": 22,
     },
@@ -163,11 +163,17 @@ def _find_font_path() -> str | None:
     return None
 
 
+_USE_LATIN_FONT = False  # main()에서 story 언어로 결정 (es·pt 등은 Jua에 악센트가 없음)
+
+
 def get_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     if size in _font_cache:
         return _font_cache[size]
     fp = _find_font_path()
-    if fp:
+    if _USE_LATIN_FONT:
+        from latin_font import latin_font
+        font = latin_font(size)
+    elif fp:
         font = ImageFont.truetype(fp, size)
     else:
         font = ImageFont.load_default()
@@ -536,6 +542,11 @@ def main():
 
     with open(story_path, "r", encoding="utf-8") as f:
         story = json.load(f)
+
+    global _USE_LATIN_FONT
+    from latin_font import needs_latin_font
+    _USE_LATIN_FONT = needs_latin_font(get_lang(story))
+    _font_cache.clear()
 
     quiz_questions = story.get("quiz_questions", []) or story.get("activity_sheet", {}).get("quiz_questions", [])
     if not quiz_questions:

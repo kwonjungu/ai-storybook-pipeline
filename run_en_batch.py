@@ -84,9 +84,33 @@ EPISODES_HARU = [
          unit_en="The Rhythm of the Day (pp. 40-41)", schedule="2026-11-18T09:00:00+09:00"),
 ]
 
+# 상상 2차분(12~20차시, bsl28~36) — 하루 단원 예약(11-18) 다음부터 수·금 09:00 KST. 인트로(_attach_intro) 포함
+EPISODES_SANGSANG2 = [
+    dict(src="통합교과_우리반에공룡이나타난다면404_1학년_함께골라요_삐요와토토의쿵쿵교실공룡뿌뿌",
+         unit_en="If a Dinosaur Appeared in Our Class (pp. 40-41)", schedule="2026-11-20T09:00:00+09:00"),
+    dict(src="통합교과_내가음악을만든다면4243p_1학년_함께골라요_랄라와흥얼이의기분음악회",
+         unit_en="If I Made Music (pp. 42-43)", schedule="2026-11-25T09:00:00+09:00"),
+    dict(src="통합교과_몸으로말한다면4445p_1학년_함께골라요_재잘이와쏙쏙이의몸으로말해요",
+         unit_en="If We Spoke with Our Bodies (pp. 44-45)", schedule="2026-11-27T09:00:00+09:00"),
+    dict(src="통합교과_숨바꼭질을한다면4647p_1학년_함께골라요_꼼지와알록이의꼭꼭숨바꼭질",
+         unit_en="If We Played Hide-and-Seek (pp. 46-47)", schedule="2026-12-02T09:00:00+09:00"),
+    dict(src="통합교과_거꾸로생각한다면4849p_1학년_함께골라요_뾰족한날엔거꾸로꺼꾸리와대롱이",
+         unit_en="If We Thought Upside Down (pp. 48-49)", schedule="2026-12-04T09:00:00+09:00"),
+    dict(src="통합교과_거인나라에간다면5051p_1학년_함께골라요_콩알이와점점이의거인나라여행",
+         unit_en="If We Visited the Land of Giants (pp. 50-51)", schedule="2026-12-09T09:00:00+09:00"),
+    dict(src="통합교과_무엇이든바꿀수있다면5253p_1학년_함께골라요_꼬리와쭈욱이의말놀이상상여행",
+         unit_en="If We Could Change Anything (pp. 52-53)", schedule="2026-12-11T09:00:00+09:00"),
+    dict(src="통합교과_우리들의놀이터를만든다면545_1학년_함께골라요_삐요와토토의상상놀이터",
+         unit_en="If We Built Our Own Playground (pp. 54-55)", schedule="2026-12-16T09:00:00+09:00"),
+    dict(src="통합교과_생각세고개를넘는다면5657p_1학년_함께골라요_갸웃이와톡톡이의생각세고개",
+         unit_en="If We Crossed the Three Hills of Thought (pp. 56-57)", schedule="2026-12-18T09:00:00+09:00"),
+]
+
 UNITS = {
     "sangsang": dict(episodes=EPISODES_SANGSANG, series="Imagination", log="_en_batch_log.json"),
     "haru":     dict(episodes=EPISODES_HARU,     series="Our Day",     log="_en_haru_batch_log.json"),
+    "sangsang2": dict(episodes=EPISODES_SANGSANG2, series="Imagination", log="_en_sangsang2_batch_log.json",
+                      intro=True, copy_anim=True),
 }
 
 # build_en_description 이 참조하는 현재 단원명 (main 에서 --unit 으로 설정)
@@ -262,7 +286,7 @@ def main():
 
         try:
             if not (dst_dir / "story.json").exists():
-                translate_story(src_dir, "en")
+                translate_story(src_dir, "en", copy_anim=bool(cfg.get("copy_anim")))
 
             # 썸네일 C 배경(언어 무관 동일 이미지) 복사
             src_c_bg = src_dir / "thumbnail_c_bg.png"
@@ -271,6 +295,10 @@ def main():
 
             if not (dst_dir / "video.mp4").exists():
                 run(["bash", "_run_en_pipeline.sh", f"output/{src_name}_en"], cwd=ROOT)
+
+            # 공통 인트로(06 다음). intro.json 이 이미 있으면 다시 붙이지 않는다(이중 인트로 방지)
+            if cfg.get("intro") and not (dst_dir / "intro.json").exists():
+                run([PY, "_attach_intro.py", "--dir", f"output/{src_name}_en", "--lang", "en"], cwd=ROOT)
 
             story = json.loads((dst_dir / "story.json").read_text(encoding="utf-8"))
 

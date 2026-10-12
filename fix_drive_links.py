@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""이미 업로드된 영상에 대해 활동지PDF·책PPTX를 Drive에 올리고
+"""⚠ 소급 재배포에 쓰지 말 것 — 새 Drive 파일을 만들고 설명란을 구 템플릿으로 덮어씀.
+   활동지 교체는 _resync_worksheets.py (같은 파일 ID 덮어쓰기).
+   이미 업로드된 영상에 대해 활동지PDF·책PPTX를 Drive에 올리고
    본편/Shorts 설명란에 링크를 사후 반영. (재업로드 없음)
    사용: python fix_drive_links.py --dir output/<폴더>
    --no-drive 로 올린 영상 보정용."""

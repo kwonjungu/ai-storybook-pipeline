@@ -364,6 +364,8 @@ def resolve_segment(translated: str, marks: list, lang: str = None, names=()):
         mid = m["id"]
         if m["kind"] == "gap":
             mt = re.search(r"\s*<%s\s*/>\s*" % mid, text)
+            if not mt:  # 모델이 태그를 'S1' 처럼 맨 글자로 바꿔 쓴 경우(2026-10-13 인니 사고)
+                mt = re.search(r"\s*(?<![A-Za-z0-9])%s(?![A-Za-z0-9])\s*" % mid.upper(), text)
             if not mt:
                 dropped += 1
                 continue
@@ -387,6 +389,7 @@ def resolve_segment(translated: str, marks: list, lang: str = None, names=()):
             else:
                 dropped += 1
     text = re.sub(r"</?[sw]\d+\s*/?>", "", text)  # 남은 표식 제거
+    text = re.sub(r"(?<![A-Za-z0-9])S\d{1,2}(?![A-Za-z0-9])\s*", "", text)  # 맨 글자로 남은 문장 사이 표식
     text = re.sub(r"[ \t]{2,}", " ", text).strip()
     simple = [{"type": m["type"], "where": m["kind"], "count": m["count"]} for m in marks if m["kind"] in ("start", "end")]
     return text, simple + sfx, dropped
@@ -507,7 +510,7 @@ def translate_story(src_dir: Path, lang: str, dst_dir: Path = None, copy_anim: b
         n = s["slide_number"]
         key = f"slide_{n}_text"
         if key in slide_tr:
-            s["text"] = slide_tr[key]
+            s["text"] = re.sub(r"\s*</?[sw]\d+\s*/?>\s*", " ", slide_tr[key]).strip()  # 슬라이드 본문엔 표식이 없어야 한다
         for i, seg in enumerate(s.get("tts_segments", [])):
             tts_key = f"slide_{n}_tts_{i}"
             seg.pop("sfx", None)  # 한국어 sfx 필드(after_text/word 가 한국어)는 그대로 못 쓴다
@@ -531,10 +534,11 @@ def translate_story(src_dir: Path, lang: str, dst_dir: Path = None, copy_anim: b
 
     # quiz_questions
     for i, q in enumerate(data["activity_sheet"]["quiz_questions"]):
+        _clean = lambda x: re.sub(r"\s*</?[sw]\d+\s*/?>\s*", " ", x).strip()   # 번역 모델이 흘린 표식 제거
         if f"q{i}_question" in quiz_tr:
-            q["question"] = quiz_tr[f"q{i}_question"]
+            q["question"] = _clean(quiz_tr[f"q{i}_question"])
         if f"q{i}_answer" in quiz_tr:
-            q["answer"] = quiz_tr[f"q{i}_answer"]
+            q["answer"] = _clean(quiz_tr[f"q{i}_answer"])
 
     # ── 저장 ───────────────────────────────────────────────
     dst_dir.mkdir(parents=True, exist_ok=True)

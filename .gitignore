@@ -96,3 +96,6 @@ _puzzle_batch*.sh
 
 # 학생 실명 포함 — 공개 저장소 금지
 student_books/
+_en_sangsang2_batch_log.json
+_id_sangsang2_batch_log.json
+_logs_sangsang2/
